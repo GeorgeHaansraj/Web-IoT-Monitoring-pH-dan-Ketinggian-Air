@@ -9,6 +9,7 @@ export default function Dashboard() {
   const router = useRouter();
   const [battery, setBattery] = useState(85);
   const [credit, setCredit] = useState(50000);
+  const [kuota, setKuota] = useState(4.5); // in GB
   const [isOnline, setIsOnline] = useState(true);
   const [activeMode, setActiveMode] = useState<"sawah" | "sumur" | "kolam">(
     "sawah",
@@ -20,7 +21,8 @@ export default function Dashboard() {
     const interval = setInterval(() => {
       setBattery((prev) => Math.max(0, prev - Math.random() * 0.5));
       setCredit((prev) => Math.max(0, prev - Math.random() * 100));
-    }, 5000);
+      setKuota((prev) => Math.max(0, prev - 0.01));
+    }, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -71,6 +73,18 @@ export default function Dashboard() {
               <span className="text-sm text-gray-600">Pulsa</span>
             </div>
             <div className="text-2xl">Rp{(credit / 1000).toFixed(1)}k</div>
+            <div className="text-xs text-gray-500 mt-1">Tersisa</div>
+          </div>
+        </div>
+
+        {/* Data Usage Widget */}
+        <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Wifi className="w-5 h-5 text-purple-600" />
+            <span className="text-sm text-gray-600">Data</span>
+          </div>
+          <div>
+            <div className="text-2xl">{kuota.toFixed(2)} GB</div>
             <div className="text-xs text-gray-500 mt-1">Tersisa</div>
           </div>
         </div>
