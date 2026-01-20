@@ -36,7 +36,7 @@ export default function ModeDetail({ mode }: ModeDetailProps) {
   const router = useRouter();
   const [currentPH, setCurrentPH] = useState(7.37);
   const [phData, setPhData] = useState<{ time: string; ph: number }[]>([]);
-  const [waterLevel, setWaterLevel] = useState(65);
+  const [waterLevel, setWaterLevel] = useState(46);
   const [isCalibrating, setIsCalibrating] = useState(false);
 
   // Simulasi Data (Ganti dengan MQTT nantinya)
