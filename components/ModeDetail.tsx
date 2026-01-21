@@ -3,44 +3,42 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
-  LineChart,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
-import { ArrowLeft, FlaskConical, Activity, Waves } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import SumurViz from "./visualizations/SumurViz";
+  ArrowLeft,
+  FlaskConical,
+  Activity,
+  Waves,
+  Droplet,
+  Lock,
+} from "lucide-react";
+import { Switch } from "@/components/ui/switch"; // Menggunakan komponen Switch dari project Anda
 import SawahViz from "./visualizations/SawahViz";
 import KolamViz from "./visualizations/KolamViz";
 import PHHistoryGraph from "./PHHistoryGraph";
 
 interface ModeDetailProps {
-  mode: "sawah" | "sumur" | "kolam";
+  mode: "sawah" | "kolam";
 }
 
 export default function ModeDetail({ mode }: ModeDetailProps) {
   const router = useRouter();
+
+  // 1. State Keamanan & Lokasi Alat
+  // deviceActualLocation nantinya diupdate melalui MQTT
+  const [deviceActualLocation, setDeviceActualLocation] =
+    useState<string>("kolam");
+  const [pumpOn, setPumpOn] = useState(false);
+
+  // Cek apakah halaman ini cocok dengan lokasi alat saat ini
+  const isActive = mode === deviceActualLocation;
+
   const [currentPH, setCurrentPH] = useState(7.37);
   const [phData, setPhData] = useState<{ time: string; ph: number }[]>([]);
   const [waterLevel, setWaterLevel] = useState(46);
-  const [isCalibrating, setIsCalibrating] = useState(false);
 
-  // Simulasi Data (Ganti dengan MQTT nantinya)
+  // Simulasi Data (Hanya berjalan jika isActive)
   useEffect(() => {
+    if (!isActive) return; // Hentikan simulasi jika mode tidak aktif
+
     const initialData = Array.from({ length: 6 }, (_, i) => ({
       time: "Now",
       ph: 7 + Math.random() * 0.5 - 0.25,
@@ -56,7 +54,7 @@ export default function ModeDetail({ mode }: ModeDetailProps) {
       );
     }, 3000);
     return () => clearInterval(interval);
-  }, []);
+  }, [isActive]); // Re-run jika status active berubah
 
   const config = {
     sawah: {
@@ -65,13 +63,6 @@ export default function ModeDetail({ mode }: ModeDetailProps) {
       activeColor: "text-green-600",
       activeBg: "bg-green-50",
       border: "border-green-500",
-    },
-    sumur: {
-      name: "Sumur",
-      icon: "🚰",
-      activeColor: "text-blue-600",
-      activeBg: "bg-blue-50",
-      border: "border-blue-500",
     },
     kolam: {
       name: "Kolam",
@@ -82,17 +73,20 @@ export default function ModeDetail({ mode }: ModeDetailProps) {
     },
   }[mode];
 
-  // 2. LOGIKA PEMILIHAN VISUALISASI
   const renderWaterVisualization = () => {
     switch (mode) {
       case "sawah":
         return <SawahViz level={waterLevel} />;
       case "kolam":
-        return <KolamViz level={waterLevel} />;
-      case "sumur":
       default:
-        return <SumurViz level={waterLevel} />;
+        return <KolamViz level={waterLevel} />;
     }
+  };
+
+  const handlePumpToggle = (checked: boolean) => {
+    if (!isActive) return;
+    setPumpOn(checked);
+    console.log(`MQTT: Pump ${mode} ${checked ? "ON" : "OFF"}`);
   };
 
   return (
@@ -108,66 +102,135 @@ export default function ModeDetail({ mode }: ModeDetailProps) {
         </div>
       </div>
 
-      {/* 2. Status Mode Card */}
+      {/* 2. Status Mode Card - Indikator ACTIVE/NON ACTIVE */}
       <div
-        className={`flex items-center justify-between p-4 rounded-xl border-2 ${config.activeBg} ${config.border}`}
+        className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all duration-500 ${
+          isActive
+            ? `${config.activeBg} ${config.border}`
+            : "bg-gray-100 border-gray-300 opacity-70"
+        }`}
       >
         <div className="flex items-center gap-3">
-          <span className="text-3xl">{config.icon}</span>
+          <span className={`text-3xl ${!isActive && "grayscale"}`}>
+            {config.icon}
+          </span>
           <div>
             <p className="text-[10px] text-gray-500 uppercase font-medium">
-              Button Mode
+              Status Perangkat
             </p>
-            <p className={`text-lg font-bold ${config.activeColor}`}>ACTIVE</p>
+            <p
+              className={`text-lg font-bold ${isActive ? config.activeColor : "text-gray-400"}`}
+            >
+              {isActive ? "ACTIVE" : "NON ACTIVE"}
+            </p>
           </div>
         </div>
-        <Activity className={`${config.activeColor} w-6 h-6 animate-pulse`} />
+        {isActive ? (
+          <Activity className={`${config.activeColor} w-6 h-6 animate-pulse`} />
+        ) : (
+          <Lock className="text-gray-400 w-6 h-6" />
+        )}
       </div>
 
-      {/* 3. pH Real-time Card */}
-      <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-6 border border-gray-100">
-        <div className="flex items-center gap-2 mb-4 text-purple-600">
-          <FlaskConical className="w-5 h-5" />
-          <h2 className="text-lg text-black">pH Real-time</h2>
+      {/* 3. Banner Peringatan jika NON ACTIVE */}
+      {!isActive && (
+        <div className="bg-red-50 border border-red-200 p-3 rounded-lg text-xs text-red-600 font-medium text-center">
+          Alat sedang terhubung di {deviceActualLocation.toUpperCase()}.
+          Dashboard ini dikunci.
         </div>
-        <div className="text-center space-y-1">
-          <div className="text-7xl tracking-tighter">
-            {currentPH.toFixed(2)}
+      )}
+
+      {/* 4. BLOK MONITORING (Akan di-FREEZE jika tidak aktif) */}
+      <div
+        className={`space-y-4 transition-all duration-700 ${
+          !isActive
+            ? "grayscale opacity-50 pointer-events-none select-none"
+            : ""
+        }`}
+      >
+        {/* pH Real-time Card */}
+        <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-6 border border-gray-100">
+          <div className="flex items-center gap-2 mb-4 text-purple-600">
+            <FlaskConical className="w-5 h-5" />
+            <h2 className="text-lg text-black">pH Real-time</h2>
           </div>
-          <p className="text-sm text-gray-500">pH Level</p>
+          <div className="text-center space-y-1">
+            <div className="text-7xl tracking-tighter">
+              {currentPH.toFixed(2)}
+            </div>
+            <p className="text-sm text-gray-500">pH Level</p>
+          </div>
+          <div className="mt-8 space-y-2">
+            <div className="w-full bg-gray-200 h-2.5 rounded-full overflow-hidden flex">
+              <div
+                className="h-full bg-green-500 transition-all duration-1000"
+                style={{ width: `${(currentPH / 14) * 100}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-[10px] text-gray-500 font-medium px-1">
+              <span>Asam (4)</span>
+              <span>Netral (7)</span>
+              <span>Basa (14)</span>
+            </div>
+          </div>
         </div>
 
-        {/* pH Range Bar */}
-        <div className="mt-8 space-y-2">
-          <div className="w-full bg-gray-200 h-2.5 rounded-full overflow-hidden flex">
-            <div
-              className="h-full bg-green-500 transition-all duration-1000"
-              style={{ width: `${(currentPH / 14) * 100}%` }}
+        {/* Water Level Card */}
+        <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-6 border border-gray-100">
+          <div className="flex items-center gap-2 mb-6 text-blue-600">
+            <Waves className="w-5 h-5" />
+            <h2 className="text-lg text-black">Level Air</h2>
+          </div>
+          <div className="mb-4 flex justify-center">
+            {renderWaterVisualization()}
+          </div>
+        </div>
+
+        {/* Grafik Riwayat pH */}
+        <PHHistoryGraph />
+      </div>
+
+      {/* 5. Kontrol Pompa (Dipindahkan dari page.tsx) */}
+      <div
+        className={`bg-white rounded-xl shadow-md p-6 border transition-all duration-500 ${
+          isActive ? "border-gray-100" : "border-red-100 opacity-80"
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Droplet
+              className={`w-6 h-6 ${pumpOn && isActive ? "text-blue-600" : "text-gray-400"}`}
             />
+            <div>
+              <h2 className="text-lg font-semibold">Kontrol Pompa</h2>
+              <p
+                className={`text-xs ${isActive ? "text-gray-500" : "text-red-500 font-medium"}`}
+              >
+                {isActive
+                  ? pumpOn
+                    ? "Pompa Aktif"
+                    : "Pompa Mati"
+                  : "Kontrol Dinonaktifkan"}
+              </p>
+            </div>
           </div>
-          <div className="flex justify-between text-[10px] text-gray-500 font-medium px-1">
-            <span>Asam (4)</span>
-            <span>Netral (7)</span>
-            <span>Basa (14)</span>
-          </div>
+          <Switch
+            disabled={!isActive} // Disable jika lokasi tidak sesuai
+            checked={pumpOn && isActive}
+            onCheckedChange={handlePumpToggle}
+            // Perbaikan visual toggle (px-1 dan translate-x-6)
+            className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors px-1 p-3 ${
+              pumpOn && isActive ? "bg-blue-600" : "bg-gray-300"
+            }`}
+          >
+            <span
+              className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+                pumpOn && isActive ? "translate-x-6" : "translate-x-0"
+              }`}
+            />
+          </Switch>
         </div>
       </div>
-
-      {/* 5. Water Level Card (Ultrasonic) */}
-      <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-6 border border-gray-100">
-        <div className="flex items-center gap-2 mb-6 text-blue-600">
-          <Waves className="w-5 h-5" />
-          <h2 className="text-lg text-black">Level Air</h2>
-        </div>
-
-        {/* 3. PANGGIL FUNGSI RENDER DI SINI */}
-        <div className="mb-4 flex justify-center">
-          {renderWaterVisualization()}
-        </div>
-      </div>
-
-      {/* 6. Grafik Riwayat pH */}
-      <PHHistoryGraph />
     </div>
   );
 }

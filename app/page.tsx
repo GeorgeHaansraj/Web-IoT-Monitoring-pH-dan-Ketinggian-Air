@@ -19,7 +19,7 @@ export default function Dashboard() {
   const sessionData = useSession();
   const session = sessionData.data;
   const status = sessionData.status;
-  type UserRole = "sawah" | "sumur" | "kolam";
+  type UserRole = "sawah" | "kolam";
   const userRole = (session?.user as { role?: UserRole })?.role;
   const isLoading = status === "loading";
 
@@ -27,9 +27,7 @@ export default function Dashboard() {
   const [credit, setCredit] = useState(50000);
   const [kuota, setKuota] = useState(4.5);
   const [isOnline, setIsOnline] = useState(true);
-  const [activeMode, setActiveMode] = useState<"sawah" | "sumur" | "kolam">(
-    "sawah",
-  );
+  const [activeMode, setActiveMode] = useState<"sawah" | "kolam">("sawah");
   const [pumpOn, setPumpOn] = useState(false);
 
   // Sinkronisasi activeMode dengan userRole saat login berhasil
@@ -64,7 +62,7 @@ export default function Dashboard() {
   };
 
   const handleNavigate = () => {
-    // Hanya pindah jika userRole sudah terisi (sawah/kolam/sumur)
+    // Hanya pindah jika userRole sudah terisi (sawah/kolam)
     if (userRole) {
       router.push(`/${userRole}`);
     } else {
@@ -167,16 +165,6 @@ export default function Dashboard() {
             </div>
           )}
 
-          {userRole === "sumur" && (
-            <div className="p-4 rounded-lg border-2 border-blue-600 bg-blue-50 text-blue-700 flex items-center gap-4">
-              <div className="text-3xl">🚰</div>
-              <div>
-                <div className="font-bold">Mode Sumur</div>
-                <div className="text-xs opacity-70">Akses Terotorisasi</div>
-              </div>
-            </div>
-          )}
-
           {userRole === "kolam" && (
             <div className="p-4 rounded-lg border-2 border-cyan-600 bg-cyan-50 text-cyan-700 flex items-center gap-4">
               <div className="text-3xl">🐟</div>
@@ -206,41 +194,6 @@ export default function Dashboard() {
         >
           {isLoading ? "Menghubungkan..." : "Lihat Detail Mode"}
         </button>
-      </div>
-
-      {/* Pump Control - UI TETAP SAMA */}
-      <div className="bg-white rounded-lg shadow-md p-6">
-        <h2 className="text-xl mb-4 font-semibold">Kontrol Pompa</h2>
-        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
-          <div className="flex items-center gap-3">
-            <Droplet
-              className={`w-6 h-6 ${pumpOn ? "text-blue-600" : "text-gray-400"}`}
-            />
-            <div>
-              <div className="text-sm font-bold">Relay Pompa</div>
-              <div
-                className={`text-xs ${pumpOn ? "text-blue-600" : "text-gray-500"}`}
-              >
-                {pumpOn ? "Pompa Aktif" : "Pompa Mati"}
-              </div>
-            </div>
-          </div>
-          <Switch
-            checked={pumpOn}
-            onCheckedChange={handlePumpToggle}
-            // Tetapkan px-1 agar posisi OFF tetap manis (tidak mepet)
-            className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${
-              pumpOn ? "bg-blue-600" : "bg-gray-300"
-            } px-1 p-3`}
-          >
-            <span
-              // UBAH: translate-x-6 menjadi translate-x-7
-              className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                pumpOn ? "translate-x-7" : "translate-x-0"
-              }`}
-            />
-          </Switch>
-        </div>
       </div>
     </div>
   );

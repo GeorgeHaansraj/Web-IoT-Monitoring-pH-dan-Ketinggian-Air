@@ -24,13 +24,6 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             password: "password123",
             role: "kolam",
           },
-          {
-            id: "3",
-            name: "Pemilik Sumur",
-            username: "sumur_user",
-            password: "password123",
-            role: "sumur",
-          },
         ];
         const user = users.find(
           (u) =>
