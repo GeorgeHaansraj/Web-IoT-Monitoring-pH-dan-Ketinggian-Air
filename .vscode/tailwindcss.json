@@ -1,0 +1,10 @@
+{
+  "atDirectives": [
+    "tailwind",
+    "apply",
+    "layer",
+    "theme",
+    "custom-variant",
+    "source"
+  ]
+}
