@@ -9,11 +9,13 @@ import {
   Waves,
   Droplet,
   Lock,
+  Bold,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch"; // Menggunakan komponen Switch dari project Anda
 import SawahViz from "./visualizations/SawahViz";
 import KolamViz from "./visualizations/KolamViz";
 import PHHistoryGraph from "./PHHistoryGraph";
+import { toast } from "sonner";
 
 interface ModeDetailProps {
   mode: "sawah" | "kolam";
@@ -86,6 +88,23 @@ export default function ModeDetail({ mode }: ModeDetailProps) {
   const handlePumpToggle = (checked: boolean) => {
     if (!isActive) return;
     setPumpOn(checked);
+    if (checked) {
+      toast("Pompa air dihidupkan", {
+        style: {
+          background: "#ffffff",
+          color: "#2563eb",
+          border: "1px solid #1d4ed8",
+        },
+      });
+    } else {
+      toast("Pompa air dimatikan", {
+        style: {
+          background: "#ffffff",
+          color: "#2563eb",
+          border: "1px solid #1d4ed8",
+        },
+      });
+    }
     console.log(`MQTT: Pump ${mode} ${checked ? "ON" : "OFF"}`);
   };
 

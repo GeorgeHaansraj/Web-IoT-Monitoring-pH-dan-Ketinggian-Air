@@ -1,6 +1,7 @@
 // app/layout.tsx
 import NextAuthProvider from "@/components/NextAuthProvider";
 import "./globals.css";
+import { Toaster } from "@/components/ui/sonner";
 
 export default function RootLayout({
   children,
@@ -12,6 +13,7 @@ export default function RootLayout({
       <body>
         {/* Bungkus seluruh aplikasi dengan SessionProvider */}
         <NextAuthProvider>{children}</NextAuthProvider>
+        <Toaster position="top-center" richColors />
       </body>
     </html>
   );
