@@ -6,17 +6,20 @@ export const proxy = auth((req) => {
   const userRole = (req.auth?.user as any)?.role;
   const { pathname } = req.nextUrl;
 
-  // 1. Arahkan ke halaman login jika belum login
-  if (!isLoggedIn && pathname !== "/login") {
+  // 1. Tentukan halaman publik yang boleh diakses tanpa login
+  const isPublicPage = pathname === "/login" || pathname === "/signup";
+
+  // 2. Arahkan ke halaman login jika belum login dan mencoba akses halaman privat
+  if (!isLoggedIn && !isPublicPage) {
     return Response.redirect(new URL("/login", req.nextUrl));
   }
 
-  // 2. Arahkan ke dashboard jika sudah login tapi mencoba mengakses halaman login
-  if (isLoggedIn && pathname === "/login") {
+  // 3. Arahkan ke dashboard jika sudah login tapi mencoba mengakses login/signup
+  if (isLoggedIn && isPublicPage) {
     return Response.redirect(new URL("/", req.nextUrl));
   }
 
-  // 3. Role Protection (Mencegah akses silang antar lahan)
+  // 4. Role Protection (Mencegah akses silang antar lahan)
   if (isLoggedIn) {
     // Proteksi halaman Sawah
     if (pathname.startsWith("/sawah") && userRole !== "sawah") {
@@ -25,6 +28,11 @@ export const proxy = auth((req) => {
 
     // Proteksi halaman Kolam
     if (pathname.startsWith("/kolam") && userRole !== "kolam") {
+      return Response.redirect(new URL("/", req.nextUrl));
+    }
+
+    // Proteksi halaman Sumur (Jika ada)
+    if (pathname.startsWith("/sumur") && userRole !== "sumur") {
       return Response.redirect(new URL("/", req.nextUrl));
     }
   }

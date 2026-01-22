@@ -3,6 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -62,6 +63,15 @@ export default function LoginPage() {
             Masuk
           </button>
         </form>
+        <div className="mt-6 text-center text-sm">
+          <p className="text-gray-500">Belum memiliki akun AgriSense?</p>
+          <Link
+            href="/signup"
+            className="inline-block mt-2 text-blue-600 font-bold hover:text-blue-700 border border-blue-600 px-4 py-2 rounded-lg transition-all"
+          >
+            Daftar Akun Baru
+          </Link>
+        </div>
       </div>
     </div>
   );
