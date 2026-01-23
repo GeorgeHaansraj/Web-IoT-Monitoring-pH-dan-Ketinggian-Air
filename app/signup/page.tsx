@@ -61,9 +61,7 @@ export default function SignUpPage() {
       <Card className="border-none shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold">Daftar Akun</CardTitle>
-          <CardDescription>
-            Lengkapi data diri untuk akses AgriSense
-          </CardDescription>
+          <CardDescription>Lengkapi data diri anda</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSignUp} className="space-y-4">
@@ -116,13 +114,13 @@ export default function SignUpPage() {
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="sawah" id="r1" />
                   <Label htmlFor="r1" className="cursor-pointer">
-                    Pemilik Sawah (Pompa 1)
+                    Akses Sawah
                   </Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="kolam" id="r2" />
                   <Label htmlFor="r2" className="cursor-pointer">
-                    Pemilik Kolam (Pompa 2)
+                    Akses Kolam
                   </Label>
                 </div>
               </RadioGroup>

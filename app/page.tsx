@@ -71,7 +71,7 @@ export default function Dashboard() {
           {/* Link ke Halaman Profil */}
           <Link
             href="/profile"
-            className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+            className="p-2 text-gray-400 hover:text-gray-800 transition-colors"
             title="Profil Pengguna"
           >
             <UserCircle className="w-8 h-8" />

@@ -27,7 +27,7 @@ export default function ModeDetail({ mode }: ModeDetailProps) {
   // 1. State Keamanan & Lokasi Alat
   // deviceActualLocation nantinya diupdate melalui MQTT
   const [deviceActualLocation, setDeviceActualLocation] =
-    useState<string>("kolam");
+    useState<string>("kolam"); // Simulasi lokasi alat saat ini
   const [pumpOn, setPumpOn] = useState(false);
 
   // Cek apakah halaman ini cocok dengan lokasi alat saat ini
@@ -154,8 +154,8 @@ export default function ModeDetail({ mode }: ModeDetailProps) {
       {/* 3. Banner Peringatan jika NON ACTIVE */}
       {!isActive && (
         <div className="bg-red-50 border border-red-200 p-3 rounded-lg text-xs text-red-600 font-medium text-center">
-          Alat sedang terhubung di {deviceActualLocation.toUpperCase()}.
-          Dashboard ini dikunci.
+          Alat sedang terhubung di {deviceActualLocation.toUpperCase()}. Riwayat
+          grafik terkunci pada data terakhir.
         </div>
       )}
 
@@ -204,8 +204,10 @@ export default function ModeDetail({ mode }: ModeDetailProps) {
             {renderWaterVisualization()}
           </div>
         </div>
+      </div>
 
-        {/* Grafik Riwayat pH */}
+      {/* 4b. Grafik Riwayat pH (Di luar freeze block agar tetap scrollable) */}
+      <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-6 border border-gray-100">
         <PHHistoryGraph />
       </div>
 

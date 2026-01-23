@@ -58,7 +58,7 @@ export default function LoginPage() {
           {error && <p className="text-red-500 text-xs text-center">{error}</p>}
           <button
             type="submit"
-            className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 transition-all"
+            className="w-full py-4 bg-gray-800 text-white rounded-xl font-bold hover:bg-gray-700 transition-all"
           >
             Masuk
           </button>
@@ -67,7 +67,7 @@ export default function LoginPage() {
           <p className="text-gray-500">Belum memiliki akun AgriSense?</p>
           <Link
             href="/signup"
-            className="inline-block mt-2 text-blue-600 font-bold hover:text-blue-700 border border-blue-600 px-4 py-2 rounded-lg transition-all"
+            className="inline-block mt-2 text-gray-800 font-bold hover:text-gray-600 border border-gray-800 px-4 py-2 rounded-lg transition-all"
           >
             Daftar Akun Baru
           </Link>

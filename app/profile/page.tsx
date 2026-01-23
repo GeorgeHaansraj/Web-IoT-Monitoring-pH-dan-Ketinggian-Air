@@ -16,6 +16,7 @@ import {
   Eye,
   Check,
   X,
+  MailIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button"; // Menggunakan komponen UI yang sudah ada
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -75,7 +76,7 @@ export default function ProfilePage() {
 
       {/* Kartu Informasi Utama */}
       <Card className="border-none shadow-md overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-300 to-indigo-300 h-24" />
+        <div className="bg-gray-800 h-24" />
         <CardContent className="relative pt-12 pb-6 text-center">
           <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-white p-1 rounded-full shadow-lg">
             <div className="bg-gray-100 rounded-full p-4">
@@ -119,30 +120,24 @@ export default function ProfilePage() {
             </p>
           </div>
         </div>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+          <div className="bg-red-50 p-2 rounded-lg">
+            <MailIcon className="w-5 h-5 text-red-400" />
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500 uppercase font-bold">
+              Email
+            </p>
+            <p className="text-sm font-semibold text-gray-700">
+              {user?.email || "georgehaansraj@example.com"}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Pengaturan Akun */}
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-gray-700 px-1">Pengaturan</h3>
-
-        {/* Ubah Sandi */}
-        <button
-          onClick={() => setOpenPasswordDialog(true)}
-          className="w-full bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition"
-        >
-          <div className="flex items-center gap-4">
-            <div className="bg-purple-50 p-2 rounded-lg">
-              <Lock className="w-5 h-5 text-purple-600" />
-            </div>
-            <div className="text-left">
-              <p className="text-xs text-gray-500 uppercase font-bold">
-                Keamanan
-              </p>
-              <p className="text-sm font-semibold text-gray-700">Ubah Sandi</p>
-            </div>
-          </div>
-          <ArrowLeft className="w-4 h-4 text-gray-400 rotate-180" />
-        </button>
 
         {/* Notifikasi */}
         <button
@@ -181,6 +176,25 @@ export default function ProfilePage() {
               <p className="text-sm font-semibold text-gray-700">
                 Pengaturan Privasi
               </p>
+            </div>
+          </div>
+          <ArrowLeft className="w-4 h-4 text-gray-400 rotate-180" />
+        </button>
+
+        {/* Ubah Sandi */}
+        <button
+          onClick={() => setOpenPasswordDialog(true)}
+          className="w-full bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition"
+        >
+          <div className="flex items-center gap-4">
+            <div className="bg-purple-50 p-2 rounded-lg">
+              <Lock className="w-5 h-5 text-purple-600" />
+            </div>
+            <div className="text-left">
+              <p className="text-xs text-gray-500 uppercase font-bold">
+                Keamanan
+              </p>
+              <p className="text-sm font-semibold text-gray-700">Ubah Sandi</p>
             </div>
           </div>
           <ArrowLeft className="w-4 h-4 text-gray-400 rotate-180" />
