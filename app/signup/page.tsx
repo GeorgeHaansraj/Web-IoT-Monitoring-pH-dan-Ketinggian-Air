@@ -26,23 +26,55 @@ export default function SignUpPage() {
     password: "",
     confirmPassword: "",
   });
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const handleSignUp = (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    setIsLoading(true);
 
     // Validasi Password
     if (formData.password !== formData.confirmPassword) {
-      alert("Password dan Konfirmasi Password tidak cocok!");
+      setError("Password dan Konfirmasi Password tidak cocok!");
+      setIsLoading(false);
       return;
     }
 
-    // Simulasi Berhasil Daftar
-    console.log("Data Pendaftar:", formData);
-    alert("Pendaftaran Berhasil! Mengalihkan ke Dashboard...");
+    if (formData.password.length < 6) {
+      setError("Password minimal 6 karakter!");
+      setIsLoading(false);
+      return;
+    }
 
-    // Navigasi Otomatis sesuai Hak Akses (Role)
-    // Karena ini fokus frontend, kita langsung arahkan ke page terkait
-    router.push(`/${formData.role}`);
+    try {
+      const response = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          nama: formData.nama,
+          noTelp: formData.noTelp,
+          role: formData.role,
+          username: formData.username,
+          password: formData.password,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        alert("Pendaftaran Berhasil! Silakan login dengan akun baru Anda.");
+        router.push("/login");
+      } else {
+        setError(result.error || "Gagal mendaftar. Silakan coba lagi.");
+      }
+    } catch (error) {
+      setError("Terjadi kesalahan. Silakan coba lagi.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -75,6 +107,7 @@ export default function SignUpPage() {
                   placeholder="Masukkan nama Anda"
                   className="pl-10"
                   required
+                  value={formData.nama}
                   onChange={(e) =>
                     setFormData({ ...formData, nama: e.target.value })
                   }
@@ -93,6 +126,7 @@ export default function SignUpPage() {
                   placeholder="0812xxxx"
                   className="pl-10"
                   required
+                  value={formData.noTelp}
                   onChange={(e) =>
                     setFormData({ ...formData, noTelp: e.target.value })
                   }
@@ -106,7 +140,7 @@ export default function SignUpPage() {
                 <ShieldCheck className="w-4 h-4" /> Pilih Hak Akses
               </Label>
               <RadioGroup
-                defaultValue="sawah"
+                value={formData.role}
                 onValueChange={(val: string) =>
                   setFormData({ ...formData, role: val })
                 }
@@ -123,6 +157,12 @@ export default function SignUpPage() {
                     Akses Kolam
                   </Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="admin" id="r3" />
+                  <Label htmlFor="r3" className="cursor-pointer">
+                    Admin (Akses Penuh)
+                  </Label>
+                </div>
               </RadioGroup>
             </div>
 
@@ -133,6 +173,7 @@ export default function SignUpPage() {
                 id="username"
                 placeholder="Buat username unik"
                 required
+                value={formData.username}
                 onChange={(e) =>
                   setFormData({ ...formData, username: e.target.value })
                 }
@@ -146,7 +187,9 @@ export default function SignUpPage() {
                 <Input
                   id="pass"
                   type="password"
+                  placeholder="Min. 6 karakter"
                   required
+                  value={formData.password}
                   onChange={(e) =>
                     setFormData({ ...formData, password: e.target.value })
                   }
@@ -157,7 +200,9 @@ export default function SignUpPage() {
                 <Input
                   id="confirm"
                   type="password"
+                  placeholder="Ulangi password"
                   required
+                  value={formData.confirmPassword}
                   onChange={(e) =>
                     setFormData({
                       ...formData,
@@ -168,11 +213,18 @@ export default function SignUpPage() {
               </div>
             </div>
 
+            {error && (
+              <div className="text-red-600 text-sm text-center bg-red-50 p-2 rounded">
+                {error}
+              </div>
+            )}
+
             <Button
               type="submit"
-              className="w-full bg-blue-600 hover:bg-blue-700 py-6 text-base font-bold"
+              disabled={isLoading}
+              className="w-full bg-blue-600 hover:bg-blue-700 py-6 text-base font-bold disabled:opacity-50"
             >
-              Daftar
+              {isLoading ? "Mendaftar..." : "Daftar"}
             </Button>
           </form>
         </CardContent>
