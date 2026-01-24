@@ -57,3 +57,13 @@ model Alert {
   
   @@map("alerts")
 }
+
+model DeviceStatus {
+  id         String   @id @default("global-device")
+  activeMode String   // "sawah" or "kolam"
+  battery    Float?   // Battery percentage
+  signal     Int?     // Signal strength
+  lastUpdate DateTime @updatedAt
+  
+  @@map("device_status")
+}

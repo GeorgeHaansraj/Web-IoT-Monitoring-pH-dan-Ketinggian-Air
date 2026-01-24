@@ -89,6 +89,7 @@ export default function AdminPage() {
   const [battery, setBattery] = useState(79.5);
   const [credit, setCredit] = useState(48800);
   const [kuota, setKuota] = useState(4.26);
+  const [activeMode, setActiveMode] = useState('sawah');
 
   // Fetch users from database on component mount
   useEffect(() => {
@@ -111,7 +112,22 @@ export default function AdminPage() {
       }
     };
 
+    const fetchDeviceStatus = async () => {
+      try {
+        const response = await fetch('/api/device-status');
+        const data = await response.json();
+
+        if (data.battery !== undefined) setBattery(data.battery);
+        if (data.signal !== undefined) setCredit(data.signal * 1000); // Use signal as credit mock
+        if (data.kuota !== undefined) setKuota(data.kuota);
+        if (data.activeMode) setActiveMode(data.activeMode);
+      } catch (error) {
+        console.error('Error fetching device status:', error);
+      }
+    };
+
     fetchUsers();
+    fetchDeviceStatus();
   }, []);
 
   const handleAddUser = () => {
@@ -237,7 +253,7 @@ export default function AdminPage() {
               <div>
                 <p className="text-gray-500 text-sm">Mode Aktif</p>
                 <p className="text-2xl font-bold capitalize">
-                  {users.filter(u => u.isActive).map(u => u.location).join(', ') || 'Tidak Ada'}
+                  {activeMode || 'Tidak Ada'}
                 </p>
               </div>
               <BarChart3 className="w-12 h-12 text-green-200" />
