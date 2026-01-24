@@ -21,8 +21,9 @@ import {
   History,
   AlertCircle,
 } from "lucide-react";
-import { Button } from "@/components/ui/button"; // Menggunakan komponen UI yang sudah ada
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import PasswordInput from "@/components/PasswordInput";
 import {
   Dialog,
   DialogContent,
@@ -224,42 +225,33 @@ export default function ProfilePage() {
             <DialogTitle>Ubah Sandi</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="current-password">Sandi Saat Ini</Label>
-              <Input
-                id="current-password"
-                type="password"
-                placeholder="Masukkan sandi saat ini"
-                value={passwords.current}
-                onChange={(e) =>
-                  setPasswords({ ...passwords, current: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="new-password">Sandi Baru</Label>
-              <Input
-                id="new-password"
-                type="password"
-                placeholder="Masukkan sandi baru"
-                value={passwords.new}
-                onChange={(e) =>
-                  setPasswords({ ...passwords, new: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirm-password">Konfirmasi Sandi</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                placeholder="Konfirmasi sandi baru"
-                value={passwords.confirm}
-                onChange={(e) =>
-                  setPasswords({ ...passwords, confirm: e.target.value })
-                }
-              />
-            </div>
+            <PasswordInput
+              id="current-password"
+              label="Sandi Saat Ini"
+              placeholder="Masukkan sandi saat ini"
+              value={passwords.current}
+              onChange={(e) =>
+                setPasswords({ ...passwords, current: e.target.value })
+              }
+            />
+            <PasswordInput
+              id="new-password"
+              label="Sandi Baru"
+              placeholder="Masukkan sandi baru"
+              value={passwords.new}
+              onChange={(e) =>
+                setPasswords({ ...passwords, new: e.target.value })
+              }
+            />
+            <PasswordInput
+              id="confirm-password"
+              label="Konfirmasi Sandi"
+              placeholder="Konfirmasi sandi baru"
+              value={passwords.confirm}
+              onChange={(e) =>
+                setPasswords({ ...passwords, confirm: e.target.value })
+              }
+            />
             {passwordError && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm flex items-start gap-2">
                 <X className="w-4 h-4 mt-0.5 flex-shrink-0" />

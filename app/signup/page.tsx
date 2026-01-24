@@ -7,6 +7,7 @@ import { ArrowLeft, User, Phone, Lock, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import PasswordInput from "@/components/PasswordInput";
 import {
   Card,
   CardContent,
@@ -182,35 +183,27 @@ export default function SignUpPage() {
 
             {/* 5 & 6. Password */}
             <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-2">
-                <Label htmlFor="pass">Password</Label>
-                <Input
-                  id="pass"
-                  type="password"
-                  placeholder="Min. 6 karakter"
-                  required
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="confirm">Konfirmasi</Label>
-                <Input
-                  id="confirm"
-                  type="password"
-                  placeholder="Ulangi password"
-                  required
-                  value={formData.confirmPassword}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      confirmPassword: e.target.value,
-                    })
-                  }
-                />
-              </div>
+              <PasswordInput
+                id="pass"
+                label="Password"
+                placeholder="Min. 6 karakter"
+                value={formData.password}
+                onChange={(e) =>
+                  setFormData({ ...formData, password: e.target.value })
+                }
+              />
+              <PasswordInput
+                id="confirm"
+                label="Konfirmasi"
+                placeholder="Ulangi password"
+                value={formData.confirmPassword}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    confirmPassword: e.target.value,
+                  })
+                }
+              />
             </div>
 
             {error && (

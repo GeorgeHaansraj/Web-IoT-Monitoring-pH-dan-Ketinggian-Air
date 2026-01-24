@@ -4,6 +4,7 @@ import { signIn } from "next-auth/react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
@@ -23,11 +24,11 @@ export default function LoginPage() {
       setError("Username atau Password salah!");
     } else {
       // Fetch session to check user role
-      const response = await fetch('/api/auth/session');
+      const response = await fetch("/api/auth/session");
       const session = await response.json();
 
       // Redirect based on role
-      if (session?.user?.role === 'admin') {
+      if (session?.user?.role === "admin") {
         router.push("/admin");
       } else {
         router.push("/");
@@ -55,12 +56,11 @@ export default function LoginPage() {
             />
           </div>
           <div>
-            <label className="text-xs font-bold text-gray-500 uppercase">
-              Password
-            </label>
-            <input
-              type="password"
-              className="w-full p-3 mt-1 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+            <PasswordInput
+              id="password"
+              label="Password"
+              placeholder="Masukkan password"
+              value={password}
               onChange={(e) => setPassword(e.target.value)}
             />
           </div>
