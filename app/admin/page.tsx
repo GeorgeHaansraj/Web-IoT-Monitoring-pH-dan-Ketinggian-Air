@@ -90,6 +90,30 @@ export default function AdminPage() {
   const [credit, setCredit] = useState(48800);
   const [kuota, setKuota] = useState(4.26);
 
+  // Fetch users from database on component mount
+  useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const response = await fetch('/api/admin/users');
+        const data = await response.json();
+
+        if (data.users) {
+          setUsers(data.users);
+          // Update total users count
+          setStats(prev => ({
+            ...prev,
+            totalUsers: data.users.length,
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        toast.error('Gagal memuat data user');
+      }
+    };
+
+    fetchUsers();
+  }, []);
+
   const handleAddUser = () => {
     if (!newUser.username || !newUser.email || !newUser.password) {
       toast.error("Semua field harus diisi");
