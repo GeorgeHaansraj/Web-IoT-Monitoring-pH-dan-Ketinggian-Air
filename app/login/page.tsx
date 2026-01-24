@@ -22,7 +22,16 @@ export default function LoginPage() {
     if (result?.error) {
       setError("Username atau Password salah!");
     } else {
-      router.push("/"); // Masuk ke dashboard
+      // Fetch session to check user role
+      const response = await fetch('/api/auth/session');
+      const session = await response.json();
+
+      // Redirect based on role
+      if (session?.user?.role === 'admin') {
+        router.push("/admin");
+      } else {
+        router.push("/");
+      }
     }
   };
 

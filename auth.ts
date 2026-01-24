@@ -60,6 +60,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return session;
     },
+    async redirect({ url, baseUrl }) {
+      // Check if user has admin role from the URL or token
+      // If login was successful and user is admin, redirect to /admin
+      if (url.includes('callbackUrl')) {
+        const urlParams = new URLSearchParams(url.split('?')[1]);
+        const callbackUrl = urlParams.get('callbackUrl');
+        if (callbackUrl) return callbackUrl;
+      }
+
+      // Default redirect to home
+      return url.startsWith(baseUrl) ? url : baseUrl;
+    },
   },
   pages: {
     signIn: "/login",
