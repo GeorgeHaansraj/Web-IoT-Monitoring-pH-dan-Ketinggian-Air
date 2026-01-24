@@ -16,6 +16,7 @@ import SawahViz from "./visualizations/SawahViz";
 import KolamViz from "./visualizations/KolamViz";
 import PHHistoryGraph from "./PHHistoryGraph";
 import { toast } from "sonner";
+import mqtt from "mqtt";
 
 interface ModeDetailProps {
   mode: "sawah" | "kolam";
@@ -41,6 +42,31 @@ export default function ModeDetail({ mode }: ModeDetailProps) {
   useEffect(() => {
     if (!isActive) return; // Hentikan simulasi jika mode tidak aktif
 
+    // Koneksi ke HiveMQ via WebSockets
+    const client = mqtt.connect("wss://YOUR_HIVEMQ_HOST:8884/mqtt", {
+      username: "YOUR_USERNAME",
+      password: "YOUR_PASSWORD",
+    });
+
+    client.on("connect", () => {
+      console.log("Connected to MQTT via Browser");
+      client.subscribe(`dwipha/${mode}/+`);
+    });
+
+    client.on("message", (topic, message) => {
+      const payload = JSON.parse(message.toString());
+
+      if (topic.includes("ph")) {
+        setCurrentPH(payload.value);
+        setPhData((prev) => [
+          ...prev.slice(1),
+          { time: "Now", ph: payload.value },
+        ]);
+      } else if (topic.includes("water_level")) {
+        setWaterLevel(payload.value);
+      }
+    });
+
     const initialData = Array.from({ length: 6 }, (_, i) => ({
       time: "Now",
       ph: 7 + Math.random() * 0.5 - 0.25,
@@ -55,8 +81,9 @@ export default function ModeDetail({ mode }: ModeDetailProps) {
         Math.max(0, Math.min(100, prev + (Math.random() * 4 - 2))),
       );
     }, 3000);
-    return () => clearInterval(interval);
-  }, [isActive]); // Re-run jika status active berubah
+    return () => client.end();
+    clearInterval(interval);
+  }, [isActive, mode]); // Re-run jika status active berubah
 
   const config = {
     sawah: {
