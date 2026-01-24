@@ -17,6 +17,9 @@ import {
   Check,
   X,
   MailIcon,
+  Microchip,
+  History,
+  AlertCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button"; // Menggunakan komponen UI yang sudah ada
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -133,6 +136,19 @@ export default function ProfilePage() {
             </p>
           </div>
         </div>
+        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
+          <div className="bg-gray-100 p-2 rounded-lg">
+            <Microchip className="w-5 h-5 text-gray-500" />
+          </div>
+          <div>
+            <p className="text-[10px] text-gray-500 uppercase font-bold">
+              ID Perangkat
+            </p>
+            <p className="text-sm font-semibold text-gray-700">
+              {user?.email || "001AC4012B3C"}
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* Pengaturan Akun */}
@@ -146,14 +162,14 @@ export default function ProfilePage() {
         >
           <div className="flex items-center gap-4">
             <div className="bg-orange-50 p-2 rounded-lg">
-              <Bell className="w-5 h-5 text-orange-600" />
+              <AlertCircle className="w-5 h-5 text-orange-600" />
             </div>
             <div className="text-left">
               <p className="text-xs text-gray-500 uppercase font-bold">
-                Pemberitahuan
+                Konfigurasi Ambang Batas
               </p>
               <p className="text-sm font-semibold text-gray-700">
-                Kelola Notifikasi
+                Kelola Ambang Batas pH dan Level Air
               </p>
             </div>
           </div>
@@ -167,14 +183,14 @@ export default function ProfilePage() {
         >
           <div className="flex items-center gap-4">
             <div className="bg-indigo-50 p-2 rounded-lg">
-              <Eye className="w-5 h-5 text-indigo-600" />
+              <History className="w-5 h-5 text-indigo-600" />
             </div>
             <div className="text-left">
               <p className="text-xs text-gray-500 uppercase font-bold">
-                Privasi
+                Log Operasional
               </p>
               <p className="text-sm font-semibold text-gray-700">
-                Pengaturan Privasi
+                Lihat Riwayat Aktivasi Pompa dan Log Error
               </p>
             </div>
           </div>
