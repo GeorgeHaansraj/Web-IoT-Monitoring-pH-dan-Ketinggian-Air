@@ -1,8 +1,13 @@
 import { PrismaClient } from '@prisma/client'
+import { PrismaNeon } from '@prisma/adapter-neon'
+import { Pool } from '@neondatabase/serverless'
 import bcrypt from 'bcryptjs'
 import 'dotenv/config'
 
-const prisma = new PrismaClient()
+const connectionString = process.env.DATABASE_URL
+const prisma = new PrismaClient({
+  adapter: new PrismaNeon(new Pool({ connectionString })),
+})
 
 async function main() {
   console.log('🌱 Seeding database with default users...')
@@ -57,7 +62,7 @@ async function main() {
   console.log('🎉 Database seeding completed!')
   console.log('\nDefault login credentials:')
   console.log('1. Sawah User - Username: sawah_user, Password: password123')
-  console.log('2. Kolam User - Username: kolam_user, Password: password123') 
+  console.log('2. Kolam User - Username: kolam_user, Password: password123')
   console.log('3. Admin User - Username: admin, Password: admin123')
 }
 
