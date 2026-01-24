@@ -31,6 +31,23 @@ export default function Dashboard() {
   const [isOnline, setIsOnline] = useState(true);
   const [activeMode, setActiveMode] = useState<"sawah" | "kolam">("sawah");
 
+  // Fetch device status from database on mount
+  useEffect(() => {
+    const fetchDeviceStatus = async () => {
+      try {
+        const response = await fetch('/api/device-status');
+        const data = await response.json();
+
+        if (data.battery !== undefined) setBattery(data.battery);
+        if (data.activeMode) setActiveMode(data.activeMode);
+      } catch (error) {
+        console.error('Error fetching device status:', error);
+      }
+    };
+
+    fetchDeviceStatus();
+  }, []);
+
   // Sinkronisasi activeMode dengan userRole saat login berhasil
   useEffect(() => {
     if (userRole) {
@@ -190,11 +207,10 @@ export default function Dashboard() {
             }
           }}
           disabled={isLoading || !userRole}
-          className={`w-full mt-4 py-4 bg-gray-800 text-white rounded-xl font-bold transition-all shadow-md ${
-            !userRole || isLoading
+          className={`w-full mt-4 py-4 bg-gray-800 text-white rounded-xl font-bold transition-all shadow-md ${!userRole || isLoading
               ? "opacity-50 cursor-not-allowed"
               : "hover:bg-gray-700 hover:shadow-lg active:scale-95"
-          }`}
+            }`}
         >
           {isLoading ? "Menghubungkan..." : "Lihat Detail Mode"}
         </button>
