@@ -31,7 +31,8 @@ export default function ModeDetail({ mode }: ModeDetailProps) {
   const [pumpOn, setPumpOn] = useState(false);
 
   // Cek apakah halaman ini cocok dengan lokasi alat saat ini
-  const isActive = mode === deviceActualLocation;
+  const isActive = deviceActualLocation === mode;
+  // 2. State Data Monitoring
 
   const [currentPH, setCurrentPH] = useState(7.37);
   const [phData, setPhData] = useState<{ time: string; ph: number }[]>([]);
