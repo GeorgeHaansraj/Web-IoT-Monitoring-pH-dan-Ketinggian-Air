@@ -254,13 +254,13 @@ export default function ProfilePage() {
             />
             {passwordError && (
               <div className="bg-red-50 border border-red-200 text-red-700 px-3 py-2 rounded-lg text-sm flex items-start gap-2">
-                <X className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <X className="w-4 h-4 mt-0.5 shrink-0" />
                 <span>{passwordError}</span>
               </div>
             )}
             {passwordSuccess && (
               <div className="bg-green-50 border border-green-200 text-green-700 px-3 py-2 rounded-lg text-sm flex items-start gap-2">
-                <Check className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                <Check className="w-4 h-4 mt-0.5 shrink-0" />
                 <span>Sandi berhasil diubah</span>
               </div>
             )}

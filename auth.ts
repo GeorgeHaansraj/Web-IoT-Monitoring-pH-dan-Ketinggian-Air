@@ -15,33 +15,38 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           return null;
         }
 
-        // Find user in database
-        const user = await prisma.user.findUnique({
-          where: {
-            email: credentials.username as string,
-          },
-        });
+        try {
+          // Find user in database
+          const user = await prisma.user.findUnique({
+            where: {
+              email: credentials.username as string,
+            },
+          });
 
-        if (!user) {
+          if (!user) {
+            return null;
+          }
+
+          // Verify password
+          const isPasswordValid = await bcrypt.compare(
+            credentials.password as string,
+            user.password,
+          );
+
+          if (!isPasswordValid) {
+            return null;
+          }
+
+          return {
+            id: user.id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+          };
+        } catch (error) {
+          console.error("Auth authorize error:", error);
           return null;
         }
-
-        // Verify password
-        const isPasswordValid = await bcrypt.compare(
-          credentials.password as string,
-          user.password
-        );
-
-        if (!isPasswordValid) {
-          return null;
-        }
-
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-        };
       },
     }),
   ],
@@ -63,9 +68,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async redirect({ url, baseUrl }) {
       // Check if user has admin role from the URL or token
       // If login was successful and user is admin, redirect to /admin
-      if (url.includes('callbackUrl')) {
-        const urlParams = new URLSearchParams(url.split('?')[1]);
-        const callbackUrl = urlParams.get('callbackUrl');
+      if (url.includes("callbackUrl")) {
+        const urlParams = new URLSearchParams(url.split("?")[1]);
+        const callbackUrl = urlParams.get("callbackUrl");
         if (callbackUrl) return callbackUrl;
       }
 

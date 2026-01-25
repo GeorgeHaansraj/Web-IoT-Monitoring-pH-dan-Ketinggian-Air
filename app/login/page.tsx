@@ -14,25 +14,40 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = await signIn("credentials", {
-      username,
-      password,
-      redirect: false,
-    });
+    setError("");
 
-    if (result?.error) {
-      setError("Username atau Password salah!");
-    } else {
-      // Fetch session to check user role
-      const response = await fetch("/api/auth/session");
-      const session = await response.json();
-
-      // Redirect based on role
-      if (session?.user?.role === "admin") {
-        router.push("/admin");
-      } else {
-        router.push("/");
+    try {
+      // Try to sign in with NextAuth credentials
+      let result = null;
+      try {
+        result = await signIn("credentials", {
+          username,
+          password,
+          redirect: false,
+        });
+      } catch (signInError) {
+        // If signIn throws error, log it but continue
+        console.error("SignIn error:", signInError);
       }
+
+      if (result?.error) {
+        setError("Username atau Password salah!");
+        return;
+      }
+
+      if (result?.ok) {
+        // Login successful, redirect to home
+        router.push("/");
+        return;
+      }
+
+      // If signIn didn't throw but also didn't return result
+      // This might mean it redirected or had an error
+      // Just redirect to home as fallback
+      router.push("/");
+    } catch (error) {
+      console.error("Login error:", error);
+      setError("Terjadi kesalahan. Silakan coba lagi.");
     }
   };
 

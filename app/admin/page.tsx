@@ -16,11 +16,13 @@ import {
   Battery,
   DollarSign,
   Wifi,
+  LogOut,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { isAdminAuthenticated, logoutAdmin } from "@/lib/admin-auth";
 
 interface User {
   id: string;
@@ -77,8 +79,8 @@ export default function AdminPage() {
     username: "",
     email: "",
     password: "",
-    role: "user" as const,
-    location: "sawah" as const,
+    role: "user" as "user" | "operator" | "admin",
+    location: "sawah" as "sawah" | "kolam" | "both",
   });
 
   const [showPasswordFields, setShowPasswordFields] = useState<{
@@ -89,32 +91,50 @@ export default function AdminPage() {
   const [battery, setBattery] = useState(79.5);
   const [credit, setCredit] = useState(48800);
   const [kuota, setKuota] = useState(4.26);
-  const [activeMode, setActiveMode] = useState('sawah');
+  const [activeMode, setActiveMode] = useState("sawah");
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Check admin authentication on mount
+  useEffect(() => {
+    if (!isAdminAuthenticated()) {
+      router.push("/admin/login");
+      return;
+    }
+    setIsLoading(false);
+  }, [router]);
 
   // Fetch users from database on component mount
   useEffect(() => {
     const fetchUsers = async () => {
       try {
-        const response = await fetch('/api/admin/users');
+        const response = await fetch("/api/admin/users");
+        if (!response.ok) {
+          console.warn("Failed to fetch users, using default data");
+          return;
+        }
         const data = await response.json();
 
-        if (data.users) {
+        if (data.users && Array.isArray(data.users)) {
           setUsers(data.users);
           // Update total users count
-          setStats(prev => ({
+          setStats((prev) => ({
             ...prev,
             totalUsers: data.users.length,
           }));
         }
       } catch (error) {
-        console.error('Error fetching users:', error);
-        toast.error('Gagal memuat data user');
+        console.error("Error fetching users:", error);
+        // Don't show error toast for initial data load, use defaults
       }
     };
 
     const fetchDeviceStatus = async () => {
       try {
-        const response = await fetch('/api/device-status');
+        const response = await fetch("/api/device-status");
+        if (!response.ok) {
+          console.warn("Failed to fetch device status, using default values");
+          return;
+        }
         const data = await response.json();
 
         if (data.battery !== undefined) setBattery(data.battery);
@@ -122,13 +142,31 @@ export default function AdminPage() {
         if (data.kuota !== undefined) setKuota(data.kuota);
         if (data.activeMode) setActiveMode(data.activeMode);
       } catch (error) {
-        console.error('Error fetching device status:', error);
+        console.error("Error fetching device status:", error);
+        // Use default values if fetch fails
       }
     };
 
     fetchUsers();
     fetchDeviceStatus();
   }, []);
+
+  const handleLogout = () => {
+    logoutAdmin();
+    toast.success("Logout berhasil");
+    router.push("/admin/login");
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto mb-4"></div>
+          <p className="text-gray-600">Memverifikasi akses admin...</p>
+        </div>
+      </div>
+    );
+  }
 
   const handleAddUser = () => {
     if (!newUser.username || !newUser.email || !newUser.password) {
@@ -188,8 +226,18 @@ export default function AdminPage() {
               </p>
             </div>
           </div>
-          <div className="text-right text-sm text-gray-500">
-            Last sync: {stats.lastSync}
+          <div className="flex items-center gap-4">
+            <div className="text-right text-sm text-gray-500">
+              Last sync: {stats.lastSync}
+            </div>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition border border-red-200"
+              title="Logout dari panel admin"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="text-sm font-medium">Logout</span>
+            </button>
           </div>
         </div>
       </div>
@@ -200,10 +248,12 @@ export default function AdminPage() {
           <h2 className="text-xl font-bold mb-4">Informasi Sistem</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {/* Battery */}
-            <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4">
+            <div className="bg-linear-to-br from-green-50 to-green-100 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Battery className="w-5 h-5 text-green-600" />
-                <span className="text-sm text-gray-600 font-medium">Baterai</span>
+                <span className="text-sm text-gray-600 font-medium">
+                  Baterai
+                </span>
               </div>
               <div className="text-2xl font-bold">{battery.toFixed(1)}%</div>
               <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
@@ -215,17 +265,19 @@ export default function AdminPage() {
             </div>
 
             {/* Credit/Pulsa */}
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
+            <div className="bg-linear-to-br from-blue-50 to-blue-100 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <DollarSign className="w-5 h-5 text-blue-600" />
                 <span className="text-sm text-gray-600 font-medium">Pulsa</span>
               </div>
-              <div className="text-2xl font-bold">Rp{(credit / 1000).toFixed(1)}k</div>
+              <div className="text-2xl font-bold">
+                Rp{(credit / 1000).toFixed(1)}k
+              </div>
               <div className="text-xs text-gray-500 mt-1">Tersisa</div>
             </div>
 
             {/* Data */}
-            <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">
+            <div className="bg-linear-to-br from-purple-50 to-purple-100 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Wifi className="w-5 h-5 text-purple-600" />
                 <span className="text-sm text-gray-600 font-medium">Data</span>
@@ -253,7 +305,7 @@ export default function AdminPage() {
               <div>
                 <p className="text-gray-500 text-sm">Mode Aktif</p>
                 <p className="text-2xl font-bold capitalize">
-                  {activeMode || 'Tidak Ada'}
+                  {activeMode || "Tidak Ada"}
                 </p>
               </div>
               <BarChart3 className="w-12 h-12 text-green-200" />
@@ -275,30 +327,33 @@ export default function AdminPage() {
         <div className="flex gap-4 mb-6 bg-white rounded-lg p-2 border border-gray-200">
           <button
             onClick={() => setActiveTab("users")}
-            className={`px-6 py-2 rounded-md font-medium transition ${activeTab === "users"
-              ? "bg-blue-600 text-white"
-              : "text-gray-600 hover:text-gray-900"
-              }`}
+            className={`px-6 py-2 rounded-md font-medium transition ${
+              activeTab === "users"
+                ? "bg-blue-600 text-white"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
           >
             <Users className="inline w-4 h-4 mr-2" />
             Users
           </button>
           <button
             onClick={() => setActiveTab("devices")}
-            className={`px-6 py-2 rounded-md font-medium transition ${activeTab === "devices"
-              ? "bg-blue-600 text-white"
-              : "text-gray-600 hover:text-gray-900"
-              }`}
+            className={`px-6 py-2 rounded-md font-medium transition ${
+              activeTab === "devices"
+                ? "bg-blue-600 text-white"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
           >
             <BarChart3 className="inline w-4 h-4 mr-2" />
             Devices
           </button>
           <button
             onClick={() => setActiveTab("settings")}
-            className={`px-6 py-2 rounded-md font-medium transition ${activeTab === "settings"
-              ? "bg-blue-600 text-white"
-              : "text-gray-600 hover:text-gray-900"
-              }`}
+            className={`px-6 py-2 rounded-md font-medium transition ${
+              activeTab === "settings"
+                ? "bg-blue-600 text-white"
+                : "text-gray-600 hover:text-gray-900"
+            }`}
           >
             <Settings className="inline w-4 h-4 mr-2" />
             Settings
@@ -459,12 +514,13 @@ export default function AdminPage() {
                       <td className="px-6 py-4 text-gray-600">{user.email}</td>
                       <td className="px-6 py-4">
                         <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${user.role === "admin"
-                            ? "bg-red-100 text-red-800"
-                            : user.role === "operator"
-                              ? "bg-blue-100 text-blue-800"
-                              : "bg-gray-100 text-gray-800"
-                            }`}
+                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                            user.role === "admin"
+                              ? "bg-red-100 text-red-800"
+                              : user.role === "operator"
+                                ? "bg-blue-100 text-blue-800"
+                                : "bg-gray-100 text-gray-800"
+                          }`}
                         >
                           {user.role}
                         </span>
