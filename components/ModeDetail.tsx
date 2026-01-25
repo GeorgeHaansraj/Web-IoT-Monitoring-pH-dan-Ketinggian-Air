@@ -82,8 +82,12 @@ export default function ModeDetail({ mode }: ModeDetailProps) {
         Math.max(0, Math.min(100, prev + (Math.random() * 4 - 2))),
       );
     }, 3000);
-    return () => client.end();
-    clearInterval(interval);
+
+    // Cleanup function
+    return () => {
+      client.end();
+      clearInterval(interval);
+    };
   }, [isActive, mode]); // Re-run jika status active berubah
 
   const config = {
@@ -151,11 +155,10 @@ export default function ModeDetail({ mode }: ModeDetailProps) {
 
       {/* 2. Status Mode Card - Indikator ACTIVE/NON ACTIVE */}
       <div
-        className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all duration-500 ${
-          isActive
+        className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all duration-500 ${isActive
             ? `${config.activeBg} ${config.border}`
             : "bg-gray-100 border-gray-300 opacity-70"
-        }`}
+          }`}
       >
         <div className="flex items-center gap-3">
           <span className={`text-3xl ${!isActive && "grayscale"}`}>
@@ -189,11 +192,10 @@ export default function ModeDetail({ mode }: ModeDetailProps) {
 
       {/* 4. BLOK MONITORING (Akan di-FREEZE jika tidak aktif) */}
       <div
-        className={`space-y-4 transition-all duration-700 ${
-          !isActive
+        className={`space-y-4 transition-all duration-700 ${!isActive
             ? "grayscale opacity-50 pointer-events-none select-none"
             : ""
-        }`}
+          }`}
       >
         {/* pH Real-time Card */}
         <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-6 border border-gray-100">
@@ -241,9 +243,8 @@ export default function ModeDetail({ mode }: ModeDetailProps) {
 
       {/* 5. Kontrol Pompa (Dipindahkan dari page.tsx) */}
       <div
-        className={`bg-white rounded-xl shadow-md p-6 border transition-all duration-500 ${
-          isActive ? "border-gray-100" : "border-red-100 opacity-80"
-        }`}
+        className={`bg-white rounded-xl shadow-md p-6 border transition-all duration-500 ${isActive ? "border-gray-100" : "border-red-100 opacity-80"
+          }`}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -268,14 +269,12 @@ export default function ModeDetail({ mode }: ModeDetailProps) {
             checked={pumpOn && isActive}
             onCheckedChange={handlePumpToggle}
             // Perbaikan visual toggle (px-1 dan translate-x-6)
-            className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors px-1 p-3 ${
-              pumpOn && isActive ? "bg-blue-600" : "bg-gray-300"
-            }`}
+            className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors px-1 p-3 ${pumpOn && isActive ? "bg-blue-600" : "bg-gray-300"
+              }`}
           >
             <span
-              className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                pumpOn && isActive ? "translate-x-6" : "translate-x-0"
-              }`}
+              className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${pumpOn && isActive ? "translate-x-6" : "translate-x-0"
+                }`}
             />
           </Switch>
         </div>
