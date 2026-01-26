@@ -1,13 +1,8 @@
 import { PrismaClient } from '@prisma/client'
-import { PrismaNeon } from '@prisma/adapter-neon'
-import { Pool } from '@neondatabase/serverless'
 import bcrypt from 'bcryptjs'
 import 'dotenv/config'
 
-const connectionString = process.env.DATABASE_URL
-const prisma = new PrismaClient({
-  adapter: new PrismaNeon(new Pool({ connectionString })),
-})
+const prisma = new PrismaClient()
 
 async function main() {
   console.log('🌱 Seeding database with default users...')
