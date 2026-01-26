@@ -2,8 +2,10 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
+import { authConfig } from "./auth.config";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
+  ...authConfig,
   providers: [
     Credentials({
       credentials: {
@@ -50,35 +52,4 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
     }),
   ],
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.role = (user as any).role;
-        token.id = user.id;
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        (session.user as any).role = token.role;
-        (session.user as any).id = token.id;
-      }
-      return session;
-    },
-    async redirect({ url, baseUrl }) {
-      // Check if user has admin role from the URL or token
-      // If login was successful and user is admin, redirect to /admin
-      if (url.includes("callbackUrl")) {
-        const urlParams = new URLSearchParams(url.split("?")[1]);
-        const callbackUrl = urlParams.get("callbackUrl");
-        if (callbackUrl) return callbackUrl;
-      }
-
-      // Default redirect to home
-      return url.startsWith(baseUrl) ? url : baseUrl;
-    },
-  },
-  pages: {
-    signIn: "/login",
-  },
 });
