@@ -18,17 +18,11 @@ export default function LoginPage() {
 
     try {
       // Try to sign in with NextAuth credentials
-      let result = null;
-      try {
-        result = await signIn("credentials", {
-          username,
-          password,
-          redirect: false,
-        });
-      } catch (signInError) {
-        // If signIn throws error, log it but continue
-        console.error("SignIn error:", signInError);
-      }
+      const result = await signIn("credentials", {
+        username,
+        password,
+        redirect: false,
+      });
 
       if (result?.error) {
         setError("Username atau Password salah!");
@@ -36,14 +30,22 @@ export default function LoginPage() {
       }
 
       if (result?.ok) {
-        // Login successful, redirect to home
-        router.push("/");
+        // Fetch session to get user role
+        const response = await fetch("/api/auth/session");
+        const session = await response.json();
+
+        const userRole = session?.user?.role;
+
+        // Redirect based on role
+        if (userRole === "admin") {
+          router.push("/admin");
+        } else {
+          router.push("/");
+        }
         return;
       }
 
-      // If signIn didn't throw but also didn't return result
-      // This might mean it redirected or had an error
-      // Just redirect to home as fallback
+      // Fallback redirect
       router.push("/");
     } catch (error) {
       console.error("Login error:", error);

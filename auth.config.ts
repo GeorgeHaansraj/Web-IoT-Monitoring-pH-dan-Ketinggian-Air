@@ -32,8 +32,7 @@ export const authConfig = {
             return session;
         },
         async redirect({ url, baseUrl }) {
-            // Check if user has admin role from the URL or token
-            // If login was successful and user is admin, redirect to /admin
+            // Check if URL contains callbackUrl parameter
             if (url.includes("callbackUrl")) {
                 const urlParams = new URLSearchParams(url.split("?")[1]);
                 const callbackUrl = urlParams.get("callbackUrl");
