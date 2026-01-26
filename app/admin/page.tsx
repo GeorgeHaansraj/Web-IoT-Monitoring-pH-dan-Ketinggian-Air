@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import {
   ArrowLeft,
   Users,
@@ -22,7 +23,6 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { isAdminAuthenticated, logoutAdmin } from "@/lib/admin-auth";
 
 interface User {
   id: string;
@@ -43,6 +43,14 @@ interface SystemStats {
 
 export default function AdminPage() {
   const router = useRouter();
+  const sessionData = useSession();
+  const session = sessionData.data;
+  const status = sessionData.status;
+  
+  const userRole = (session?.user as { role?: string })?.role;
+  const isAdmin = userRole === "admin";
+  const isLoading = status === "loading";
+
   const [activeTab, setActiveTab] = useState<"users" | "devices" | "settings">(
     "users",
   );
@@ -92,19 +100,28 @@ export default function AdminPage() {
   const [credit, setCredit] = useState(48800);
   const [kuota, setKuota] = useState(4.26);
   const [activeMode, setActiveMode] = useState("sawah");
-  const [isLoading, setIsLoading] = useState(true);
 
-  // Check admin authentication on mount
+  // Check admin authentication and redirect if needed
   useEffect(() => {
-    if (!isAdminAuthenticated()) {
-      router.push("/admin/login");
+    // Wait for session to finish loading
+    if (status === "loading") {
       return;
     }
-    setIsLoading(false);
-  }, [router]);
 
-  // Fetch users from database on component mount
+    // Redirect if not authenticated or not admin
+    if (status === "unauthenticated" || !session || !isAdmin) {
+      router.push("/login");
+      return;
+    }
+  }, [status, session, isAdmin, router]);
+
+  // Fetch users from database only after admin is confirmed
   useEffect(() => {
+    // Only fetch if user is authenticated and is admin
+    if (status !== "authenticated" || !isAdmin) {
+      return;
+    }
+
     const fetchUsers = async () => {
       try {
         const response = await fetch("/api/admin/users");
@@ -149,20 +166,25 @@ export default function AdminPage() {
 
     fetchUsers();
     fetchDeviceStatus();
-  }, []);
+  }, [status, isAdmin]);
 
-  const handleLogout = () => {
-    logoutAdmin();
+  const handleLogout = async () => {
+    await signOut({ redirect: false });
     toast.success("Logout berhasil");
-    router.push("/admin/login");
+    router.push("/login");
   };
 
-  if (isLoading) {
+  // Show loading while checking session or if not authenticated/admin
+  if (isLoading || status === "unauthenticated" || !session || !isAdmin) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-800 mx-auto mb-4"></div>
-          <p className="text-gray-600">Memverifikasi akses admin...</p>
+          <p className="text-gray-600">
+            {isLoading
+              ? "Memverifikasi akses admin..."
+              : "Mengarahkan ke halaman login..."}
+          </p>
         </div>
       </div>
     );
