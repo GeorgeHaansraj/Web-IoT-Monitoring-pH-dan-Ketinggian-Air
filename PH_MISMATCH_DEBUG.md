@@ -9,12 +9,14 @@
 ## 🎯 Diagnosis
 
 ### Apa yang terjadi:
+
 1. ✅ LCD ESP32: Menampilkan pH 4 (sensor bekerja)
 2. ✅ API `/api/ph-latest`: Siap menerima data
 3. ❌ Database: Kosong (belum terima data dari ESP32)
 4. ❌ Dashboard: Menampilkan default value 7.37 (karena no data di DB)
 
 ### Bukti:
+
 ```bash
 # Check database
 curl http://localhost:3000/api/ph-latest?location=sawah
@@ -46,15 +48,15 @@ curl http://localhost:3000/api/ph-latest?location=sawah
 void sendPHToDatabase(float phValue) {
   if (WiFi.status() == WL_CONNECTED) {
     HTTPClient http;
-    
+
     // 1. Setup connection ke API
     String apiUrl = "https://YOUR_DOMAIN.com/api/ph";
     // ATAU jika local testing:
     // String apiUrl = "http://192.168.x.x:3000/api/ph";
-    
+
     http.begin(apiUrl);
     http.addHeader("Content-Type", "application/json");
-    
+
     // 2. Prepare JSON payload
     String jsonPayload = "{";
     jsonPayload += "\"value\":" + String(phValue, 2) + ",";
@@ -62,14 +64,14 @@ void sendPHToDatabase(float phValue) {
     jsonPayload += "\"deviceId\":\"ESP32-001\",";
     jsonPayload += "\"temperature\":28.5";
     jsonPayload += "}";
-    
+
     // 3. Send POST request
     int httpResponseCode = http.POST(jsonPayload);
-    
+
     Serial.print("[PH] POST /api/ph → ");
     Serial.println(httpResponseCode == 200 ? "✓ OK" : "✗ FAILED");
     Serial.println("JSON: " + jsonPayload);
-    
+
     http.end();
   }
 }
@@ -79,6 +81,7 @@ sendPHToDatabase(4.0);  // Ganti dengan sensor reading
 ```
 
 **Checklist ESP32:**
+
 - [ ] WiFi connected (check SSID & password)
 - [ ] API URL correct (point ke domain Vercel atau IP local)
 - [ ] JSON format valid (value, location, deviceId)
@@ -156,6 +159,7 @@ curl http://localhost:3000/api/ph-test | jq .
 ### ❌ Dashboard masih menunjukkan default (7.37)?
 
 **Langkah 1: Verify database kosong**
+
 ```bash
 curl http://localhost:3000/api/ph-test | jq '.debug.latestByLocation'
 
@@ -164,6 +168,7 @@ curl http://localhost:3000/api/ph-test | jq '.debug.latestByLocation'
 ```
 
 **Langkah 2: Inject test data**
+
 ```bash
 curl -X POST http://localhost:3000/api/ph-test \
   -H "Content-Type: application/json" \
@@ -171,10 +176,12 @@ curl -X POST http://localhost:3000/api/ph-test \
 ```
 
 **Langkah 3: Wait 5 detik, refresh dashboard**
+
 - Dashboard harus update ke 4.0
 - Jika masih 7.37 → cache issue atau polling tidak berjalan
 
 **Langkah 4: Check browser console**
+
 ```javascript
 // Open DevTools (F12) → Console
 // Cari logs [PH-REALTIME]
@@ -199,9 +206,9 @@ curl -X POST http://localhost:3000/api/ph-test \
 
 void setup() {
   Serial.begin(115200);
-  
+
   // ... WiFi setup ...
-  
+
   Serial.println("WiFi Status: " + String(WiFi.status()));
   Serial.println("IP: " + WiFi.localIP().toString());
 }
@@ -209,15 +216,16 @@ void setup() {
 void loop() {
   float phValue = readPHSensor();  // Dari sensor, LCD tampil ini
   Serial.println("pH from sensor: " + String(phValue, 2));
-  
+
   // PROBLEM: Apakah ini dipanggil?
   sendPHToDatabase(phValue);
-  
+
   delay(30000);  // Wait 30 detik sebelum kirim lagi
 }
 ```
 
 **Perbaikan:**
+
 - Pastikan `sendPHToDatabase()` function dipanggil
 - Pastikan WiFi connected
 - Pastikan API URL correct
@@ -266,14 +274,14 @@ curl -X POST http://localhost:3000/api/ph-test \
 void testPHSending() {
   Serial.println("[TEST] Sending pH 4.0...");
   sendPHToDatabase(4.0);
-  
+
   delay(2000);
-  
+
   Serial.println("[TEST] Sending pH 7.0...");
   sendPHToDatabase(7.0);
-  
+
   delay(2000);
-  
+
   Serial.println("[TEST] Sending pH 9.5...");
   sendPHToDatabase(9.5);
 }
@@ -281,12 +289,13 @@ void testPHSending() {
 // 2. Call di setup():
 void setup() {
   // ... WiFi & init ...
-  
+
   testPHSending();  // Kirim test data
 }
 ```
 
 **Expected Output di Serial Monitor:**
+
 ```
 [TEST] Sending pH 4.0...
 [HTTP] POST /api/ph → 201 CREATED
@@ -299,6 +308,7 @@ void setup() {
 ```
 
 **Expected di Dashboard:**
+
 - pH Real-time card akan menampilkan 9.5 (latest value)
 - Historical graph akan punya 3 data points
 
@@ -361,16 +371,15 @@ void setup() {
 
 ## 💡 Summary
 
-| Component | Status | Issue |
-|-----------|--------|-------|
-| ESP32 Sensor | ✅ Works (LCD: 4) | |
-| ESP32 WiFi | ? | Need to verify |
-| ESP32 HTTP Send | ❌ Not happening | **Need to check code** |
-| API `/api/ph` | ✅ Ready | |
-| Database | ✅ Ready | No data received |
-| API `/api/ph-latest` | ✅ Works | Returns null if no data |
-| Dashboard Code | ✅ Correct | Polling works, but DB empty |
-| Dashboard Display | ❌ Shows default | Because DB empty |
+| Component            | Status            | Issue                       |
+| -------------------- | ----------------- | --------------------------- |
+| ESP32 Sensor         | ✅ Works (LCD: 4) |                             |
+| ESP32 WiFi           | ?                 | Need to verify              |
+| ESP32 HTTP Send      | ❌ Not happening  | **Need to check code**      |
+| API `/api/ph`        | ✅ Ready          |                             |
+| Database             | ✅ Ready          | No data received            |
+| API `/api/ph-latest` | ✅ Works          | Returns null if no data     |
+| Dashboard Code       | ✅ Correct        | Polling works, but DB empty |
+| Dashboard Display    | ❌ Shows default  | Because DB empty            |
 
 **Action Item**: Check ESP32 firmware - ensure `sendPHToDatabase()` is being called after WiFi connects!
-
