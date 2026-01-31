@@ -6,7 +6,7 @@ import bcrypt from "bcryptjs";
 /**
  * POST /api/user/change-password
  * Ubah password user yang sudah login
- * 
+ *
  * Request body:
  * {
  *   currentPassword: string,

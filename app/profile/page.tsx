@@ -59,11 +59,7 @@ export default function ProfilePage() {
 
   const handleChangePassword = async () => {
     // Validasi input lokal
-    if (
-      !passwords.current ||
-      !passwords.new ||
-      !passwords.confirm
-    ) {
+    if (!passwords.current || !passwords.new || !passwords.confirm) {
       setPasswordError("Semua field harus diisi");
       return;
     }
