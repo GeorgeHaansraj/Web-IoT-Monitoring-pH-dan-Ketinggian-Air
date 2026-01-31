@@ -13,6 +13,7 @@
 File: [examples/esp32-complete-ph-sender.ino](../examples/esp32-complete-ph-sender.ino)
 
 **Fitur:**
+
 - ✅ Baca sensor pH analog (GPIO A0)
 - ✅ Tampilkan di LCD I2C 16x2 (otomatis rotate display)
 - ✅ Kirim HTTP POST ke `/api/ph` setiap 10 detik
@@ -25,6 +26,7 @@ File: [examples/esp32-complete-ph-sender.ino](../examples/esp32-complete-ph-send
 ## 🔧 Setup Steps
 
 ### Step 1: Download Firmware
+
 Copy file [esp32-complete-ph-sender.ino](../examples/esp32-complete-ph-sender.ino)
 
 ### Step 2: Update Konfigurasi
@@ -45,6 +47,7 @@ const char* LOCATION = "sawah";  // atau "kolam" sesuai lokasi device
 ```
 
 **Perlu di-update:**
+
 ```
 SSID               → WiFi network name
 PASSWORD           → WiFi password
@@ -55,6 +58,7 @@ LOCATION           → "sawah" atau "kolam"
 ### Step 3: Install Library (jika belum ada)
 
 Di Arduino IDE:
+
 - Sketch → Include Library → Manage Libraries
 - Cari: `LiquidCrystal I2C` → Install
 - Cari: `ArduinoJson` → Install (versi 6.x)
@@ -126,16 +130,18 @@ Mode 3:
 ## 🔌 Hardware Wiring
 
 ### Sensor pH
+
 ```
 PH Sensor Module:
   GND  → GND ESP32
   VCC  → +5V (via buck converter dari battery)
   A0   → GPIO A0 (ADC pin 0)
-  
+
 Note: Sensor butuh voltage stabil 4.7-5.2V
 ```
 
 ### LCD I2C (16x2)
+
 ```
 LCD Module:
   GND  → GND ESP32
@@ -145,6 +151,7 @@ LCD Module:
 ```
 
 ### Relay Pompa (optional)
+
 ```
 Relay Module:
   GND  → GND ESP32
@@ -160,6 +167,7 @@ Relay Module:
 ### Test 1: Local Testing (tanpa ESP32)
 
 **Inject test data ke database:**
+
 ```bash
 curl -X POST http://localhost:3000/api/ph-test \
   -H "Content-Type: application/json" \
@@ -167,6 +175,7 @@ curl -X POST http://localhost:3000/api/ph-test \
 ```
 
 **Check dashboard:**
+
 - Open http://localhost:3000
 - pH Real-time harus menunjukkan 6.8 dalam 5 detik
 
@@ -223,6 +232,7 @@ Dashboard → React State → Display ✓
 ### Sensor pH Calibration
 
 Default formula di code:
+
 ```cpp
 currentPH = (analogValue / 1023.0) * 14.0;
 ```
@@ -230,6 +240,7 @@ currentPH = (analogValue / 1023.0) * 14.0;
 Ini generic dan perlu fine-tuning di lapangan:
 
 **Step 1: Measure analog value di known pH**
+
 ```cpp
 // Uncomment ini di setup() untuk debug:
 void printAnalogValues() {
@@ -241,6 +252,7 @@ void printAnalogValues() {
 ```
 
 **Step 2: Calibrate dengan formula:**
+
 ```
 Jika di pH 7 (neutral), analog read = 512
 Jika di pH 4 (asam), analog read = 284
@@ -265,6 +277,7 @@ const char* API_PH_URL = "http://20.2.138.40:3000/api/ph";
 ```
 
 **Test connection:**
+
 ```bash
 # From ESP32 Serial Monitor, verify WiFi:
 [WiFi] Connecting to YOUR_SSID
@@ -283,6 +296,7 @@ IP: 192.168.1.105
 ### ❌ WiFi tidak connect
 
 **Verify:**
+
 ```
 - Cek SSID & password benar
 - Cek ESP32 dalam range WiFi
@@ -290,6 +304,7 @@ IP: 192.168.1.105
 ```
 
 **Fix:**
+
 ```cpp
 // Add di setup() untuk debug:
 Serial.println("WiFi Status: " + String(WiFi.status()));
@@ -299,6 +314,7 @@ Serial.println("WiFi Status: " + String(WiFi.status()));
 ### ❌ API POST gagal (HTTP 400/500)
 
 **Verify:**
+
 ```
 - Cek API_PH_URL format correct
 - Cek domain/IP accessible dari ESP32
@@ -306,6 +322,7 @@ Serial.println("WiFi Status: " + String(WiFi.status()));
 ```
 
 **Debug:**
+
 ```cpp
 // Check response dari API:
 String response = http.getString();
@@ -315,13 +332,14 @@ Serial.println("API Response: " + response);
 ### ❌ pH nilai tidak berubah
 
 **Kemungkinan:**
+
 ```
 1. Sensor tidak terhubung (A0 pin floating)
    → Check wiring
-   
+
 2. Sensor broken
    → Test dengan multimeter
-   
+
 3. Analog value stabil di 512 (tengah)
    → Kalibrate sensor
 ```
@@ -329,6 +347,7 @@ Serial.println("API Response: " + response);
 ### ❌ LCD tidak tampil
 
 **Verify:**
+
 ```
 - Cek SDA (GPIO21) & SCL (GPIO22) terhubung
 - Cek LCD address (default 0x27)
@@ -374,33 +393,37 @@ curl http://localhost:3000/api/ph-test
 **Firmware siap ketika:**
 
 ✅ Serial Monitor menunjukkan:
-  - WiFi connected dengan IP
-  - [API] Sending message setiap 10 detik
-  - ✓ pH sent successfully! dengan HTTP 201
+
+- WiFi connected dengan IP
+- [API] Sending message setiap 10 detik
+- ✓ pH sent successfully! dengan HTTP 201
 
 ✅ LCD menampilkan:
-  - pH value yang berubah
-  - WiFi status OK
-  - Device info
+
+- pH value yang berubah
+- WiFi status OK
+- Device info
 
 ✅ Dashboard menunjukkan:
-  - pH Real-time update dalam 10-20 detik
-  - Value match dengan LCD ±0.5
-  - History graph accumulating data
+
+- pH Real-time update dalam 10-20 detik
+- Value match dengan LCD ±0.5
+- History graph accumulating data
 
 ✅ Database punya data:
-  - curl /api/ph-test return non-null values
-  - Timestamp update setiap 10 detik
+
+- curl /api/ph-test return non-null values
+- Timestamp update setiap 10 detik
 
 ---
 
 ## 📝 File References
 
-| File | Purpose |
-|------|---------|
-| [esp32-complete-ph-sender.ino](../examples/esp32-complete-ph-sender.ino) | **← USE THIS** Complete firmware |
-| [esp32-pump-relay-http.ino](../examples/esp32-pump-relay-http.ino) | Reference for relay control |
-| [arduino-water-level-sensor.ino](../examples/arduino-water-level-sensor.ino) | Reference for water level |
+| File                                                                         | Purpose                          |
+| ---------------------------------------------------------------------------- | -------------------------------- |
+| [esp32-complete-ph-sender.ino](../examples/esp32-complete-ph-sender.ino)     | **← USE THIS** Complete firmware |
+| [esp32-pump-relay-http.ino](../examples/esp32-pump-relay-http.ino)           | Reference for relay control      |
+| [arduino-water-level-sensor.ino](../examples/arduino-water-level-sensor.ino) | Reference for water level        |
 
 ---
 
@@ -425,4 +448,3 @@ Database: timestamp updated every 10s ✓
 
 ALL MATCH! 🎉
 ```
-
