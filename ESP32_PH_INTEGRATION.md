@@ -3,6 +3,7 @@
 ## Quick Start: Send pH Data dari ESP32
 
 ### 1. Format HTTP Request
+
 ```
 POST /api/ph HTTP/1.1
 Host: your-vercel-domain.com
@@ -17,6 +18,7 @@ Content-Type: application/json
 ```
 
 ### 2. Arduino ESP32 Code (TinyGSM)
+
 ```cpp
 #include <Arduino.h>
 #include <WiFi.h>
@@ -40,9 +42,9 @@ const unsigned long PH_READ_INTERVAL = 10000;  // 10 seconds
 void setup() {
   Serial.begin(115200);
   delay(1000);
-  
+
   Serial.println("\n\nStarting pH Sensor Integration...");
-  
+
   connectToWiFi();
 }
 
@@ -50,13 +52,13 @@ void loop() {
   // Read and send pH every 10 seconds
   if (millis() - lastPHReadTime >= PH_READ_INTERVAL) {
     lastPHReadTime = millis();
-    
+
     // Read sensor values
     float phValue = readPhSensor();
     float temperature = readTemperature();
-    
+
     Serial.printf("[PH] Value: %.2f, Temp: %.1f°C\n", phValue, temperature);
-    
+
     // Send to API
     sendPhToAPI(phValue, temperature);
   }
@@ -64,17 +66,17 @@ void loop() {
 
 void connectToWiFi() {
   Serial.printf("Connecting to WiFi: %s\n", WIFI_SSID);
-  
+
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  
+
   int attempts = 0;
   while (WiFi.status() != WL_CONNECTED && attempts < 20) {
     delay(500);
     Serial.print(".");
     attempts++;
   }
-  
+
   if (WiFi.status() == WL_CONNECTED) {
     Serial.println("\n✓ WiFi Connected!");
     Serial.printf("IP Address: %s\n", WiFi.localIP().toString().c_str());
@@ -86,17 +88,17 @@ void connectToWiFi() {
 float readPhSensor() {
   // Read analog value from pH sensor (0-4095)
   int rawValue = analogRead(PH_SENSOR_PIN);
-  
+
   // Convert to pH (0-14 range)
   // Calibration: 0V = pH 0, 3.3V = pH 14
   // ADC: 0 = 0V, 4095 = 3.3V
   float voltage = (rawValue / 4095.0) * 3.3;
   float ph = voltage * (14.0 / 3.3);  // Linear conversion
-  
+
   // Clamp value (0-14)
   if (ph < 0) ph = 0;
   if (ph > 14) ph = 14;
-  
+
   return ph;
 }
 
@@ -106,7 +108,7 @@ float readTemperature() {
   int rawValue = analogRead(TEMP_SENSOR_PIN);
   float voltage = (rawValue / 4095.0) * 3.3;
   float temp = (voltage - 0.5) * 100;  // Rough conversion
-  
+
   return temp;
 }
 
@@ -115,35 +117,35 @@ void sendPhToAPI(float phValue, float temperature) {
     Serial.println("[ERROR] WiFi not connected, skipping API call");
     return;
   }
-  
+
   HTTPClient http;
-  
+
   Serial.printf("[HTTP] POST %s\n", API_ENDPOINT);
-  
+
   // Start HTTP request
   http.begin(API_ENDPOINT);
   http.addHeader("Content-Type", "application/json");
-  
+
   // Create JSON payload
   StaticJsonDocument<256> doc;
   doc["value"] = phValue;
   doc["location"] = "sawah";
   doc["deviceId"] = DEVICE_ID;
   doc["temperature"] = temperature;
-  
+
   String jsonPayload;
   serializeJson(doc, jsonPayload);
-  
+
   Serial.printf("[JSON] %s\n", jsonPayload.c_str());
-  
+
   // Send request
   int httpResponseCode = http.POST(jsonPayload);
-  
+
   if (httpResponseCode > 0) {
     String response = http.getString();
     Serial.printf("[HTTP] Response Code: %d\n", httpResponseCode);
     Serial.printf("[HTTP] Response: %s\n", response.c_str());
-    
+
     if (httpResponseCode == 200) {
       Serial.println("[SUCCESS] pH data sent successfully!");
     } else {
@@ -152,7 +154,7 @@ void sendPhToAPI(float phValue, float temperature) {
   } else {
     Serial.printf("[ERROR] HTTP Error: %s\n", http.errorToString(httpResponseCode).c_str());
   }
-  
+
   http.end();
 }
 ```
@@ -160,6 +162,7 @@ void sendPhToAPI(float phValue, float temperature) {
 ### 3. Testing dengan cURL
 
 **Test 1: Single pH Reading**
+
 ```bash
 curl -X POST https://your-domain.com/api/ph \
   -H "Content-Type: application/json" \
@@ -170,22 +173,24 @@ curl -X POST https://your-domain.com/api/ph \
 ```
 
 **Test 2: Multiple Readings (Simulate 1 hour)**
+
 ```bash
 #!/bin/bash
 for i in {1..360}; do
   PH_VALUE=$(echo "scale=2; 7.0 + ($RANDOM % 100) / 100" | bc)
   TEMP=$(echo "scale=1; 28.0 + ($RANDOM % 50) / 10" | bc)
-  
+
   curl -X POST https://your-domain.com/api/ph \
     -H "Content-Type: application/json" \
     -d "{\"value\": $PH_VALUE, \"location\": \"sawah\", \"deviceId\": \"ESP32-001\", \"temperature\": $TEMP}"
-  
+
   echo "[$i/360] pH: $PH_VALUE, Temp: $TEMP°C"
   sleep 10  # Wait 10 seconds between readings
 done
 ```
 
 **Test 3: Verify Data Saved**
+
 ```bash
 # Check raw pH readings
 curl https://your-domain.com/api/ph?location=sawah&limit=10
@@ -215,13 +220,14 @@ curl "https://your-domain.com/api/ph-history?location=sawah&range=hour"
 ### 4. Advanced: Multi-Location Setup
 
 **Sawah + Kolam Simultaneous**
+
 ```cpp
 void sendMultipleLocations(float phValue, float temperature) {
   // Send to Sawah
   sendPhToLocation(phValue, temperature, "sawah");
-  
+
   delay(1000);  // Small delay between requests
-  
+
   // Send to Kolam (simulated/different sensor)
   float phValueKolam = phValue + (random(-5, 5) / 100.0);  // Slight variation
   sendPhToLocation(phValueKolam, temperature, "kolam");
@@ -232,16 +238,16 @@ void sendPhToLocation(float phValue, float temperature, const char* location) {
   HTTPClient http;
   http.begin(API_ENDPOINT);
   http.addHeader("Content-Type", "application/json");
-  
+
   StaticJsonDocument<256> doc;
   doc["value"] = phValue;
   doc["location"] = location;  // "sawah" or "kolam"
   doc["deviceId"] = DEVICE_ID;
   doc["temperature"] = temperature;
-  
+
   String jsonPayload;
   serializeJson(doc, jsonPayload);
-  
+
   int httpResponseCode = http.POST(jsonPayload);
   Serial.printf("[%s] Response: %d\n", location, httpResponseCode);
   http.end();
@@ -259,6 +265,7 @@ After ESP32 sends data:
 5. **Click "Tahun"** → See last 5 years aggregated by year
 
 Expected visualization:
+
 ```
 Riwayat pH
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -274,14 +281,14 @@ Riwayat pH
 
 ### 6. Troubleshooting
 
-| Issue | Solution |
-|-------|----------|
-| `Connection timeout` | Check WiFi connection, API endpoint URL |
-| `401 Unauthorized` | Verify NextAuth session (API doesn't require auth currently) |
-| `400 Bad Request` | Check JSON format, required fields: `value`, `location` |
-| `500 Server Error` | Check Vercel logs, database connectivity |
-| `Data not appearing` | Verify timestamps, check database directly |
-| `High latency` | Consider batch sending, reduce update frequency |
+| Issue                | Solution                                                     |
+| -------------------- | ------------------------------------------------------------ |
+| `Connection timeout` | Check WiFi connection, API endpoint URL                      |
+| `401 Unauthorized`   | Verify NextAuth session (API doesn't require auth currently) |
+| `400 Bad Request`    | Check JSON format, required fields: `value`, `location`      |
+| `500 Server Error`   | Check Vercel logs, database connectivity                     |
+| `Data not appearing` | Verify timestamps, check database directly                   |
+| `High latency`       | Consider batch sending, reduce update frequency              |
 
 ### 7. Production Tips
 
@@ -290,7 +297,7 @@ Riwayat pH
 ✅ **Data Validation**: Ensure pH 0-14, temperature realistic  
 ✅ **Logging**: Keep serial logs for debugging  
 ✅ **Battery**: Consider power-saving modes if on battery  
-✅ **Certificate**: Use HTTPS for production  
+✅ **Certificate**: Use HTTPS for production
 
 ---
 
@@ -298,19 +305,20 @@ Riwayat pH
 
 ```sql
 -- Run this query to verify data
-SELECT 
+SELECT
   DATE_PART('hour', timestamp) as hour,
   COUNT(*) as reading_count,
   ROUND(AVG(value)::numeric, 2) as avg_ph,
   ROUND(MIN(value)::numeric, 2) as min_ph,
   ROUND(MAX(value)::numeric, 2) as max_ph
-FROM ph_readings 
+FROM ph_readings
 WHERE location = 'sawah' AND timestamp > NOW() - INTERVAL '1 hour'
 GROUP BY DATE_PART('hour', timestamp)
 ORDER BY hour DESC;
 ```
 
 **Expected output after 1 hour (360 readings at 10-second interval):**
+
 ```
 hour | reading_count | avg_ph | min_ph | max_ph
 -----|---------------|--------|--------|-------
@@ -324,7 +332,7 @@ hour | reading_count | avg_ph | min_ph | max_ph
 After sending pH data from ESP32:
 
 - [ ] API receives POST requests (check Vercel logs)
-- [ ] Data appears in database (SELECT COUNT(*) FROM ph_readings)
+- [ ] Data appears in database (SELECT COUNT(\*) FROM ph_readings)
 - [ ] Dashboard loads "Riwayat pH" section
 - [ ] Chart shows data points for selected range
 - [ ] Range selector buttons work (Jam/Hari/Bulan/Tahun)
@@ -334,4 +342,3 @@ After sending pH data from ESP32:
 ---
 
 **Status**: Ready for ESP32 integration! 🚀
-

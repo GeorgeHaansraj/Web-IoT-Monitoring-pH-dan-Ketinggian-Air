@@ -6,7 +6,7 @@ type TimeRange = "hour" | "day" | "month" | "year";
 /**
  * GET /api/ph-history
  * Fetch pH history dengan time-based aggregation
- * 
+ *
  * Query params:
  * - location: "kolam" atau "sawah" (default: "sawah")
  * - range: "hour" | "day" | "month" | "year" (default: "hour")
@@ -67,7 +67,9 @@ export async function GET(request: NextRequest) {
       orderBy: { timestamp: "asc" },
     });
 
-    console.log(`[PH-HISTORY] Fetched ${readings.length} readings for ${location} (${range})`);
+    console.log(
+      `[PH-HISTORY] Fetched ${readings.length} readings for ${location} (${range})`,
+    );
 
     // Aggregate data berdasarkan time range
     const aggregated = aggregateByTimeRange(readings, range);
@@ -117,7 +119,15 @@ function aggregateByTimeRange(
       label = `${date.getHours().toString().padStart(2, "0")}:00`;
     } else if (range === "day") {
       // Group by day of week
-      const days = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+      const days = [
+        "Minggu",
+        "Senin",
+        "Selasa",
+        "Rabu",
+        "Kamis",
+        "Jumat",
+        "Sabtu",
+      ];
       key = days[date.getDay()];
       label = days[date.getDay()];
     } else if (range === "month") {
@@ -157,7 +167,9 @@ function aggregateByTimeRange(
   return Object.entries(groups).map(([key, values]) => ({
     timestamp: key,
     label: key,
-    ph: parseFloat((values.reduce((a, b) => a + b, 0) / values.length).toFixed(2)),
+    ph: parseFloat(
+      (values.reduce((a, b) => a + b, 0) / values.length).toFixed(2),
+    ),
     min: parseFloat(Math.min(...values).toFixed(2)),
     max: parseFloat(Math.max(...values).toFixed(2)),
     count: values.length,

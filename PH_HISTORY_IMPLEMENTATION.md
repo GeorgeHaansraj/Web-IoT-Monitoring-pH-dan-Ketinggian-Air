@@ -2,7 +2,7 @@
 
 **Date**: 2026-01-31  
 **Status**: ✅ Implemented  
-**Integration**: Real-time data from ESP32 sensor  
+**Integration**: Real-time data from ESP32 sensor
 
 ---
 
@@ -12,7 +12,7 @@ Fitur Riwayat pH sekarang **menggunakan data real dari ESP32** dan **bukan dummy
 
 - 📈 **Jam**: 24 jam terakhir, group by jam
 - 📅 **Hari**: 7 hari terakhir, group by hari
-- 📆 **Bulan**: 12 bulan terakhir, group by bulan  
+- 📆 **Bulan**: 12 bulan terakhir, group by bulan
 - 📊 **Tahun**: 5 tahun terakhir, group by tahun
 
 ---
@@ -20,6 +20,7 @@ Fitur Riwayat pH sekarang **menggunakan data real dari ESP32** dan **bukan dummy
 ## 🔧 Implementasi Teknis
 
 ### 1. **Database Layer**
+
 ```sql
 -- Tabel: ph_readings
 CREATE TABLE ph_readings (
@@ -36,16 +37,19 @@ CREATE INDEX idx_ph_location_timestamp ON ph_readings(location, timestamp DESC);
 ```
 
 ### 2. **API Endpoint**
+
 ```
 GET /api/ph-history?location=sawah&range=hour&limit=100
 ```
 
 **Query Parameters:**
+
 - `location` (default: "sawah") - "kolam" atau "sawah"
 - `range` (default: "hour") - "hour", "day", "month", atau "year"
 - `limit` (default: 100) - max records
 
 **Response Format:**
+
 ```json
 {
   "success": true,
@@ -70,6 +74,7 @@ GET /api/ph-history?location=sawah&range=hour&limit=100
 ### 3. **Data Aggregation Logic**
 
 #### Jam (Hour)
+
 ```
 - Periode: 24 jam terakhir
 - Group By: Jam (00:00, 01:00, ..., 23:00)
@@ -78,6 +83,7 @@ GET /api/ph-history?location=sawah&range=hour&limit=100
 ```
 
 #### Hari (Day)
+
 ```
 - Periode: 7 hari terakhir
 - Group By: Hari minggu (Senin, Selasa, ...)
@@ -86,6 +92,7 @@ GET /api/ph-history?location=sawah&range=hour&limit=100
 ```
 
 #### Bulan (Month)
+
 ```
 - Periode: 12 bulan terakhir
 - Group By: Bulan (Januari, Februari, ...)
@@ -94,6 +101,7 @@ GET /api/ph-history?location=sawah&range=hour&limit=100
 ```
 
 #### Tahun (Year)
+
 ```
 - Periode: 5 tahun terakhir
 - Group By: Tahun (2021, 2022, ...)
@@ -106,6 +114,7 @@ GET /api/ph-history?location=sawah&range=hour&limit=100
 ## 📱 Frontend Integration
 
 ### PHHistoryGraph Component
+
 ```tsx
 // components/PHHistoryGraph.tsx
 
@@ -118,13 +127,14 @@ GET /api/ph-history?location=sawah&range=hour&limit=100
 ```
 
 ### Fitur UI
+
 ✅ 4 tombol range selector (Jam, Hari, Bulan, Tahun)  
 ✅ Loading indicator saat fetch  
 ✅ Error message jika ada masalah  
 ✅ Empty state "Belum ada data pH tersedia"  
 ✅ Dynamic width untuk data points yang rapi  
 ✅ Horizontal scroll untuk data panjang  
-✅ Tooltip interaktif  
+✅ Tooltip interaktif
 
 ---
 
@@ -159,6 +169,7 @@ ESP32 Sensor
 ### Manual Testing
 
 **Test 1: Jam Range**
+
 ```bash
 # Di terminal ESP32
 # POST pH data setiap detik selama 1 menit
@@ -173,6 +184,7 @@ curl -X POST http://api-server/api/ph \
 ```
 
 **Test 2: Data Kontinyu**
+
 ```bash
 # Jalankan script untuk push pH setiap 30 detik selama 1 jam
 for i in {1..120}; do
@@ -187,6 +199,7 @@ done
 ```
 
 **Test 3: Multiple Locations**
+
 ```bash
 # Test untuk kolam juga
 curl http://api-server/api/ph-history?location=kolam&range=hour
@@ -195,22 +208,23 @@ curl http://api-server/api/ph-history?location=kolam&range=hour
 ```
 
 ### Automated Tests (Jest)
+
 ```typescript
 // __tests__/api/ph-history.test.ts
 
-describe('GET /api/ph-history', () => {
-  test('should aggregate hourly data correctly', async () => {
+describe("GET /api/ph-history", () => {
+  test("should aggregate hourly data correctly", async () => {
     // Create 24 hour records
     // Call endpoint with range=hour
     // Verify: 24 data points returned
   });
 
-  test('should calculate min/max/avg correctly', async () => {
+  test("should calculate min/max/avg correctly", async () => {
     // Create 10 records with values: 7.0, 7.2, 7.1, ...
     // Verify: avg = 7.15, min = 7.0, max = 7.2
   });
 
-  test('should handle empty data gracefully', async () => {
+  test("should handle empty data gracefully", async () => {
     // Query for non-existent location
     // Verify: Empty array returned, no error
   });
@@ -222,10 +236,11 @@ describe('GET /api/ph-history', () => {
 ## 📝 API Usage Examples
 
 ### JavaScript/TypeScript (Frontend)
+
 ```typescript
 // Fetch pH history for sawah, hourly
 const response = await fetch(
-  '/api/ph-history?location=sawah&range=hour&limit=100'
+  "/api/ph-history?location=sawah&range=hour&limit=100",
 );
 const data = await response.json();
 
@@ -236,13 +251,14 @@ const data = await response.json();
 // ]
 
 // Render di chart
-chartData = data.data.map(point => ({
+chartData = data.data.map((point) => ({
   t: point.label,
-  ph: point.ph
+  ph: point.ph,
 }));
 ```
 
 ### cURL (Testing)
+
 ```bash
 # Hourly data
 curl http://localhost:3000/api/ph-history?location=sawah&range=hour
@@ -265,6 +281,7 @@ curl "http://localhost:3000/api/ph-history?location=kolam&range=day&limit=50"
 ## 🔍 Monitoring & Logging
 
 ### Console Logs
+
 ```
 [PH-HISTORY] Fetched 432 readings for sawah (hour)
 [PH-HISTORY] Fetched 1200 readings for kolam (day)
@@ -272,19 +289,20 @@ curl "http://localhost:3000/api/ph-history?location=kolam&range=day&limit=50"
 ```
 
 ### Database Queries
+
 ```sql
 -- Untuk melihat raw data
-SELECT * FROM ph_readings WHERE location = 'sawah' 
+SELECT * FROM ph_readings WHERE location = 'sawah'
 ORDER BY timestamp DESC LIMIT 10;
 
 -- Untuk verify aggregation
-SELECT 
+SELECT
   EXTRACT(HOUR FROM timestamp) as hour,
   AVG(value) as avg_ph,
   MIN(value) as min_ph,
   MAX(value) as max_ph,
   COUNT(*) as count
-FROM ph_readings 
+FROM ph_readings
 WHERE location = 'sawah' AND timestamp > NOW() - INTERVAL '24 hours'
 GROUP BY EXTRACT(HOUR FROM timestamp)
 ORDER BY hour;
@@ -295,6 +313,7 @@ ORDER BY hour;
 ## 🎨 UI/UX Features
 
 ### Loading State
+
 ```
 ┌─────────────────────────────┐
 │ Riwayat pH                  │
@@ -308,6 +327,7 @@ ORDER BY hour;
 ```
 
 ### Error State
+
 ```
 ┌─────────────────────────────┐
 │ Riwayat pH                  │
@@ -321,6 +341,7 @@ ORDER BY hour;
 ```
 
 ### Empty State
+
 ```
 ┌─────────────────────────────┐
 │ Riwayat pH                  │
@@ -334,6 +355,7 @@ ORDER BY hour;
 ```
 
 ### Success State
+
 ```
 ┌─────────────────────────────┐
 │ Riwayat pH        ↔ GESER   │
@@ -353,6 +375,7 @@ ORDER BY hour;
 ## 🔧 Configuration
 
 ### Environment Variables
+
 ```env
 # .env
 DATABASE_URL=postgresql://user:pass@localhost/iot_db
@@ -360,6 +383,7 @@ PH_SENSOR_INTERVAL=10000  # Push pH setiap 10 detik
 ```
 
 ### Schema Optimization
+
 ```prisma
 model PHReading {
   id          String   @id @default(cuid())
@@ -368,7 +392,7 @@ model PHReading {
   timestamp   DateTime @default(now())
   deviceId    String?
   temperature Float?
-  
+
   @@map("ph_readings")
   @@index([location, timestamp])  // Composite index
 }
@@ -378,11 +402,11 @@ model PHReading {
 
 ## 📚 Files Modified
 
-| File | Changes |
-|------|---------|
-| `app/api/ph-history/route.ts` | New: Real data aggregation endpoint |
+| File                            | Changes                                   |
+| ------------------------------- | ----------------------------------------- |
+| `app/api/ph-history/route.ts`   | New: Real data aggregation endpoint       |
 | `components/PHHistoryGraph.tsx` | Updated: Fetch real data + loading states |
-| `prisma/schema.prisma` | No change (existing PHReading model) |
+| `prisma/schema.prisma`          | No change (existing PHReading model)      |
 
 ---
 
@@ -420,7 +444,6 @@ Fitur Riwayat pH sekarang **fully functional** dengan:
 ✅ Smart aggregation berdasarkan time range  
 ✅ Robust error handling  
 ✅ Beautiful UI  
-✅ Production-ready code  
+✅ Production-ready code
 
 **Status**: 🟢 Ready to use
-
