@@ -3,15 +3,7 @@
 import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import {
-  ArrowLeft,
-  User,
-  LogOut,
-  Lock,
-  Check,
-  X,
-  Power,
-} from "lucide-react";
+import { ArrowLeft, User, LogOut, Lock, Check, X, Power } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import PasswordInput from "@/components/PasswordInput";
@@ -39,6 +31,7 @@ export default function ProfilePage() {
   });
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
 
   // Fetch pump history when modal opens
   useEffect(() => {
@@ -61,6 +54,70 @@ export default function ProfilePage() {
       console.error("Error fetching pump history:", error);
     } finally {
       setPumpHistoryLoading(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    // Validasi input lokal
+    if (
+      !passwords.current ||
+      !passwords.new ||
+      !passwords.confirm
+    ) {
+      setPasswordError("Semua field harus diisi");
+      return;
+    }
+    if (passwords.new !== passwords.confirm) {
+      setPasswordError("Sandi baru tidak cocok");
+      return;
+    }
+    if (passwords.new.length < 6) {
+      setPasswordError("Sandi baru harus minimal 6 karakter");
+      return;
+    }
+
+    // Prevent double submit
+    if (isChangingPassword) return;
+
+    setIsChangingPassword(true);
+    setPasswordError("");
+
+    try {
+      // Call API untuk change password
+      const response = await fetch("/api/user/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          currentPassword: passwords.current,
+          newPassword: passwords.new,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setPasswordError(data.error || "Gagal mengubah sandi");
+        return;
+      }
+
+      // Success
+      setPasswordError("");
+      setPasswordSuccess(true);
+      console.log("[SECURITY] Password berhasil diubah");
+
+      // Reset form dan close dialog setelah 2 detik
+      setTimeout(() => {
+        setOpenPasswordDialog(false);
+        setPasswords({ current: "", new: "", confirm: "" });
+        setPasswordSuccess(false);
+      }, 2000);
+    } catch (error) {
+      console.error("Error changing password:", error);
+      setPasswordError("Terjadi kesalahan saat mengubah sandi");
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -213,7 +270,6 @@ export default function ProfilePage() {
           </div>
           <DialogFooter>
             <Button
-              variant="outline"
               onClick={() => {
                 setOpenPasswordDialog(false);
                 setPasswords({ current: "", new: "", confirm: "" });
@@ -224,33 +280,10 @@ export default function ProfilePage() {
               Batal
             </Button>
             <Button
-              onClick={() => {
-                if (
-                  !passwords.current ||
-                  !passwords.new ||
-                  !passwords.confirm
-                ) {
-                  setPasswordError("Semua field harus diisi");
-                  return;
-                }
-                if (passwords.new !== passwords.confirm) {
-                  setPasswordError("Sandi baru tidak cocok");
-                  return;
-                }
-                if (passwords.new.length < 6) {
-                  setPasswordError("Sandi baru harus minimal 6 karakter");
-                  return;
-                }
-                setPasswordError("");
-                setPasswordSuccess(true);
-                setTimeout(() => {
-                  setOpenPasswordDialog(false);
-                  setPasswords({ current: "", new: "", confirm: "" });
-                  setPasswordSuccess(false);
-                }, 2000);
-              }}
+              onClick={handleChangePassword}
+              disabled={isChangingPassword}
             >
-              Ubah Sandi
+              {isChangingPassword ? "Mengubah..." : "Ubah Sandi"}
             </Button>
           </DialogFooter>
         </DialogContent>
