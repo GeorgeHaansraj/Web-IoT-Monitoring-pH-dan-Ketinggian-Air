@@ -183,8 +183,17 @@ export default function Dashboard() {
   // Mode Detail Config & Functions
   const getPHStatus = (mode: "sawah" | "kolam", ph: number) => {
     if (mode === "kolam") {
-      // Kolam Ikan Patin (Rentang Ideal: 6.5 – 8.5)
+      // Kolam Ikan Patin
       if (ph < 6.0) {
+        return {
+          status: "⚠️ WARNING: ASAM",
+          action:
+            "Tambahkan kapur pertanian (Dolomit) secara bertahap. Cek sisa pakan di dasar kolam.",
+          bgColor: "bg-yellow-50 border-yellow-200",
+          textColor: "text-yellow-700",
+        };
+      }
+      if (ph >= 6.0 && ph < 6.5) {
         return {
           status: "⚠️ WARNING: ASAM",
           action:
@@ -201,6 +210,15 @@ export default function Dashboard() {
           textColor: "text-green-700",
         };
       }
+      if (ph > 8.5 && ph <= 9.0) {
+        return {
+          status: "⚠️ WARNING: BASA",
+          action:
+            "Lakukan pergantian air sebanyak 20-30%. Amonia berisiko menjadi racun tinggi.",
+          bgColor: "bg-orange-50 border-orange-200",
+          textColor: "text-orange-700",
+        };
+      }
       if (ph > 9.0) {
         return {
           status: "⚠️ WARNING: BASA",
@@ -211,8 +229,17 @@ export default function Dashboard() {
         };
       }
     } else if (mode === "sawah") {
-      // Sawah Padi (Rentang Ideal: 5.5 – 7.0)
+      // Sawah Padi
       if (ph < 5.0) {
+        return {
+          status: "🚨 ALERT: TANAH ASAM",
+          action:
+            "Segera aplikasikan kapur dolomit atau abu bakar untuk menaikkan pH agar hara tidak terikat.",
+          bgColor: "bg-red-50 border-red-200",
+          textColor: "text-red-700",
+        };
+      }
+      if (ph >= 5.0 && ph < 5.5) {
         return {
           status: "🚨 ALERT: TANAH ASAM",
           action:
@@ -228,6 +255,15 @@ export default function Dashboard() {
             "Kondisi tanah ideal untuk penyerapan NPK. Pertahankan genangan air.",
           bgColor: "bg-green-50 border-green-200",
           textColor: "text-green-700",
+        };
+      }
+      if (ph > 7.0 && ph <= 7.5) {
+        return {
+          status: "⚠️ WARNING: ALKALIN",
+          action:
+            "Gunakan pupuk yang bersifat mengasamkan seperti ZA (Ammonium Sulfat) untuk menekan pH.",
+          bgColor: "bg-yellow-50 border-yellow-200",
+          textColor: "text-yellow-700",
         };
       }
       if (ph > 7.5) {
@@ -272,28 +308,65 @@ export default function Dashboard() {
     );
   };
 
-  const handlePumpToggle = (checked: boolean) => {
-    // Monitoring section always controls sawah pump
+  const handlePumpToggle = async (checked: boolean) => {
+    // Update state UI dulu
     setSawahPumpOn(checked);
 
-    if (checked) {
-      toast("Pompa air dihidupkan", {
-        style: {
-          background: "#ffffff",
-          color: "#2563eb",
-          border: "1px solid #1d4ed8",
+    try {
+      // Kirim status pompa ke API
+      const response = await fetch("/api/pump-relay", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
+        body: JSON.stringify({
+          mode: "sawah",
+          isOn: checked,
+          changedBy: "dashboard",
+        }),
       });
-    } else {
-      toast("Pompa air dimatikan", {
+
+      if (!response.ok) {
+        throw new Error("Gagal mengirim status pompa ke server");
+      }
+
+      const data = await response.json();
+
+      // Toast notifikasi
+      if (checked) {
+        toast("Pompa air dihidupkan", {
+          style: {
+            background: "#ffffff",
+            color: "#2563eb",
+            border: "1px solid #1d4ed8",
+          },
+        });
+      } else {
+        toast("Pompa air dimatikan", {
+          style: {
+            background: "#ffffff",
+            color: "#2563eb",
+            border: "1px solid #1d4ed8",
+          },
+        });
+      }
+
+      console.log(
+        `HTTP: Pump Sawah ${checked ? "ON" : "OFF"} - Response:`,
+        data,
+      );
+    } catch (error) {
+      console.error("Error sending pump status:", error);
+      // Revert state jika error
+      setSawahPumpOn(!checked);
+      toast("Gagal mengontrol pompa", {
         style: {
           background: "#ffffff",
-          color: "#2563eb",
-          border: "1px solid #1d4ed8",
+          color: "#dc2626",
+          border: "1px solid #991b1b",
         },
       });
     }
-    console.log(`MQTT: Pump Sawah ${checked ? "ON" : "OFF"}`);
   };
 
   // Monitoring section always shows sawah data
@@ -412,9 +485,6 @@ export default function Dashboard() {
               >
                 {modeConfig.sawah.name} - pH {sawahPH.toFixed(2)}
               </div>
-              <div className="text-xs text-gray-600 mb-1">
-                💧 Air: {sawahWaterLevel.toFixed(1)} cm
-              </div>
               <div
                 className={`text-sm font-semibold mb-2 ${getPHStatus("sawah", sawahPH).textColor}`}
               >
@@ -438,9 +508,6 @@ export default function Dashboard() {
                 className={`font-bold text-lg ${getPHStatus("kolam", kolamPH).textColor}`}
               >
                 {modeConfig.kolam.name} - pH {kolamPH.toFixed(2)}
-              </div>
-              <div className="text-xs text-gray-600 mb-1">
-                💧 Air: {kolamWaterLevel.toFixed(1)} cm
               </div>
               <div
                 className={`text-sm font-semibold mb-2 ${getPHStatus("kolam", kolamPH).textColor}`}

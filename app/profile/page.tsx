@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
@@ -17,9 +17,9 @@ import {
   Check,
   X,
   MailIcon,
-  Microchip,
   History,
   AlertCircle,
+  Power,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -40,6 +40,9 @@ export default function ProfilePage() {
   const router = useRouter();
   const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
   const [openNotificationDialog, setOpenNotificationDialog] = useState(false);
+  const [showPumpHistory, setShowPumpHistory] = useState(false);
+  const [pumpHistory, setPumpHistory] = useState<any[]>([]);
+  const [pumpHistoryLoading, setPumpHistoryLoading] = useState(false);
   const [passwords, setPasswords] = useState({
     current: "",
     new: "",
@@ -57,6 +60,30 @@ export default function ProfilePage() {
     profilePublic: false,
     twoFactorEnabled: false,
   });
+
+  // Fetch pump history when modal opens
+  useEffect(() => {
+    if (showPumpHistory && pumpHistory.length === 0) {
+      fetchPumpHistory();
+    }
+  }, [showPumpHistory]);
+
+  const fetchPumpHistory = async () => {
+    setPumpHistoryLoading(true);
+    try {
+      const response = await fetch(
+        "/api/pump-history?mode=sawah&limit=20&offset=0",
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setPumpHistory(data.data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching pump history:", error);
+    } finally {
+      setPumpHistoryLoading(false);
+    }
+  };
 
   if (status === "loading") {
     return (
@@ -137,19 +164,6 @@ export default function ProfilePage() {
             </p>
           </div>
         </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="bg-gray-100 p-2 rounded-lg">
-            <Microchip className="w-5 h-5 text-gray-500" />
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-500 uppercase font-bold">
-              ID Perangkat
-            </p>
-            <p className="text-sm font-semibold text-gray-700">
-              {user?.email || "001AC4012B3C"}
-            </p>
-          </div>
-        </div>
       </div>
 
       {/* Pengaturan Akun */}
@@ -178,6 +192,27 @@ export default function ProfilePage() {
         </button>
 
         {/* Privasi & Keamanan */}
+        <button
+          onClick={() => setShowPumpHistory(true)}
+          className="w-full bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition"
+        >
+          <div className="flex items-center gap-4">
+            <div className="bg-cyan-50 p-2 rounded-lg">
+              <Power className="w-5 h-5 text-cyan-600" />
+            </div>
+            <div className="text-left">
+              <p className="text-xs text-gray-500 uppercase font-bold">
+                Riwayat Pompa
+              </p>
+              <p className="text-sm font-semibold text-gray-700">
+                Lihat Aktivasi Pompa Terakhir
+              </p>
+            </div>
+          </div>
+          <ArrowLeft className="w-4 h-4 text-gray-400 rotate-180" />
+        </button>
+
+        {/* Log Operasional */}
         <button
           onClick={() => setShowPrivacyDialog(true)}
           className="w-full bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition"
@@ -435,6 +470,71 @@ export default function ProfilePage() {
               Tutup
             </Button>
             <Button onClick={() => setShowPrivacyDialog(false)}>Simpan</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Riwayat Pompa */}
+      <Dialog open={showPumpHistory} onOpenChange={setShowPumpHistory}>
+        <DialogContent className="max-w-sm max-h-96 overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Power className="w-5 h-5 text-cyan-600" />
+              Riwayat Aktivasi Pompa
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto space-y-2 py-4">
+            {pumpHistoryLoading ? (
+              <div className="text-center py-8 text-gray-500">
+                Memuat riwayat pompa...
+              </div>
+            ) : pumpHistory.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                Belum ada riwayat aktivasi pompa
+              </div>
+            ) : (
+              pumpHistory.map((entry, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 bg-gray-50 rounded-lg border border-gray-200"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-medium text-sm text-gray-700">
+                      {entry.newState ? (
+                        <span className="inline-flex items-center gap-1 text-green-600">
+                          <Power className="w-3 h-3" /> Dihidupkan
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-red-600">
+                          <Power className="w-3 h-3" /> Dimatikan
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {entry.changedBy}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {new Date(entry.timestamp).toLocaleString("id-ID", {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    })}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    dari {entry.previousState ? "ON" : "OFF"} ke{" "}
+                    {entry.newState ? "ON" : "OFF"}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              onClick={() => setShowPumpHistory(false)}
+              className="w-full"
+            >
+              Tutup
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -67,3 +67,25 @@ model DeviceStatus {
   
   @@map("device_status")
 }
+model PumpStatus {
+  id        String   @id @default(cuid())
+  mode      String   @unique // "sawah" or "kolam"
+  isOn      Boolean  @default(false)
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  
+  @@map("pump_status")
+}
+
+model PumpHistory {
+  id           String   @id @default(cuid())
+  mode         String   // "sawah" or "kolam"
+  previousState Boolean
+  newState     Boolean
+  changedBy    String   @default("dashboard") // "dashboard", "esp", "manual"
+  userId       String?  // Optional: who triggered it
+  timestamp    DateTime @default(now())
+  
+  @@map("pump_history")
+  @@index([mode, timestamp])
+}
