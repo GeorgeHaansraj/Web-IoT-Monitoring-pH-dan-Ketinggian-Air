@@ -171,10 +171,16 @@ export default function Dashboard() {
       });
 
       client.on("error", (error) => {
-        console.warn("[MQTT] Connection error (using database polling instead):", error);
+        console.warn(
+          "[MQTT] Connection error (using database polling instead):",
+          error,
+        );
       });
     } catch (error) {
-      console.warn("[MQTT] MQTT not available (using database polling):", error);
+      console.warn(
+        "[MQTT] MQTT not available (using database polling):",
+        error,
+      );
     }
 
     // Cleanup
