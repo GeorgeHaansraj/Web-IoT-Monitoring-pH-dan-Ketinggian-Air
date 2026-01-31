@@ -1,60 +1,105 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url)
-    const location = searchParams.get('location')
-    const limit = parseInt(searchParams.get('limit') || '100')
+    const { searchParams } = new URL(request.url);
+    const location = searchParams.get("location");
+    const limit = parseInt(searchParams.get("limit") || "100");
 
     const readings = await prisma.waterLevelReading.findMany({
       where: location ? { location } : undefined,
-      orderBy: { timestamp: 'desc' },
+      orderBy: { timestamp: "desc" },
       take: limit,
-    })
+    });
 
-    return NextResponse.json(readings)
+    return NextResponse.json(readings);
   } catch (error) {
-    console.error('Error fetching water level readings:', error)
-    return NextResponse.json({ error: 'Failed to fetch water level readings' }, { status: 500 })
+    console.error("Error fetching water level readings:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch water level readings" },
+      { status: 500 },
+    );
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
-    const { level, location, deviceId } = body
+    const body = await request.json();
+    const { level, location, deviceId, mode } = body;
 
-    // Determine status based on water level
-    let status = 'normal'
-    if (level < 20) status = 'critical'
-    else if (level < 40) status = 'low'
-    else if (level > 150) status = 'high'
+    // Validasi input
+    if (!level || level < 0) {
+      return NextResponse.json(
+        { error: "Level harus berupa angka positif (dalam cm)" },
+        { status: 400 },
+      );
+    }
+
+    // Tentukan status berdasarkan mode dan ketinggian air
+    let status = "normal";
+
+    if (mode === "sawah") {
+      // Sawah: optimal 30-60cm
+      if (level < 15) status = "critical";
+      else if (level < 30) status = "low";
+      else if (level <= 60) status = "normal";
+      else if (level < 75) status = "high";
+      else status = "very_high";
+    } else if (mode === "kolam") {
+      // Kolam: optimal 80-130cm
+      if (level < 40) status = "critical";
+      else if (level < 80) status = "low";
+      else if (level <= 130) status = "normal";
+      else if (level < 150) status = "high";
+      else status = "very_high";
+    }
 
     const reading = await prisma.waterLevelReading.create({
       data: {
         level: parseFloat(level),
-        location,
+        location: location || mode,
         deviceId,
         status,
       },
-    })
+    });
 
-    // Create alert for abnormal water levels
-    if (status !== 'normal') {
+    // Buat alert untuk status abnormal
+    if (status !== "normal") {
+      const severityMap: { [key: string]: string } = {
+        critical: "critical",
+        low: "medium",
+        high: "medium",
+        very_high: "high",
+      };
+
+      const typeMap: { [key: string]: string } = {
+        critical: "water_critical",
+        low: "water_low",
+        high: "water_high",
+        very_high: "water_very_high",
+      };
+
       await prisma.alert.create({
         data: {
-          type: status === 'critical' || status === 'low' ? 'water_low' : 'water_high',
-          message: `Water level ${status} at ${location}: ${level}cm`,
-          location,
-          severity: status === 'critical' ? 'critical' : 'medium',
+          type: typeMap[status] || "water_alert",
+          message: `Level air ${status} di ${mode}: ${level}cm (${location || "default"})`,
+          location: location || mode,
+          severity: severityMap[status] || "medium",
         },
-      })
+      });
     }
 
-    return NextResponse.json(reading)
+    return NextResponse.json({
+      success: true,
+      message: `Data level air ${location || mode} berhasil disimpan: ${level}cm`,
+      reading: reading,
+    });
   } catch (error) {
-    console.error('Error creating water level reading:', error)
-    return NextResponse.json({ error: 'Failed to create water level reading' }, { status: 500 })
+    console.error("Error creating water level reading:", error);
+    return NextResponse.json(
+      { error: "Gagal menyimpan data level air" },
+      { status: 500 },
+    );
   }
 }

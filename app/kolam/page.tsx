@@ -1,5 +1,15 @@
-import ModeDetail from "@/components/ModeDetail";
+"use client";
+
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 export default function KolamPage() {
-  return <ModeDetail mode="kolam" />;
+  const router = useRouter();
+
+  useEffect(() => {
+    // Redirect ke halaman utama karena semua konten sudah terintegrasi
+    router.push("/");
+  }, [router]);
+
+  return null;
 }
