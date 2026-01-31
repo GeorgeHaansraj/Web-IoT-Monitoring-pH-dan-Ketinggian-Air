@@ -76,6 +76,41 @@ export default function Dashboard() {
     fetchDeviceStatus();
   }, []);
 
+  // Fetch pH Real-time from database
+  useEffect(() => {
+    const fetchPhRealtime = async (location: string) => {
+      try {
+        const response = await fetch(`/api/ph-latest?location=${location}`);
+        const data = await response.json();
+
+        if (data.success && data.value !== null) {
+          if (location === "sawah") {
+            setSawahPH(data.value);
+          } else if (location === "kolam") {
+            setKolamPH(data.value);
+          }
+          console.log(
+            `[PH-REALTIME] Updated ${location} pH: ${data.value} from database`,
+          );
+        }
+      } catch (error) {
+        console.error(`[PH-REALTIME] Error fetching ${location} pH:`, error);
+      }
+    };
+
+    // Fetch untuk kedua lokasi
+    fetchPhRealtime("sawah");
+    fetchPhRealtime("kolam");
+
+    // Setup polling interval: update setiap 5 detik
+    const pollInterval = setInterval(() => {
+      fetchPhRealtime("sawah");
+      fetchPhRealtime("kolam");
+    }, 5000);
+
+    return () => clearInterval(pollInterval);
+  }, []);
+
   // Tidak perlu sinkronisasi dengan userRole lagi karena menampilkan semua mode
 
   // Simulasi real-time (Tetap sama)
@@ -88,87 +123,65 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
-  // Mode Detail MQTT Connection & Simulation
+  // Mode Detail MQTT Connection & Real-time Updates from Database
   useEffect(() => {
-    // Koneksi ke HiveMQ via WebSockets
-    const client = mqtt.connect("wss://YOUR_HIVEMQ_HOST:8884/mqtt", {
-      username: "YOUR_USERNAME",
-      password: "YOUR_PASSWORD",
-    });
+    // Try to connect to MQTT (optional, for future enhancement)
+    // For now, rely on database polling via /api/ph-latest
+    let client: ReturnType<typeof mqtt.connect> | null = null;
 
-    client.on("connect", () => {
-      console.log("Connected to MQTT via Browser");
-      client.subscribe(`dwipha/+/+`);
-    });
+    try {
+      client = mqtt.connect("wss://YOUR_HIVEMQ_HOST:8884/mqtt", {
+        username: "YOUR_USERNAME",
+        password: "YOUR_PASSWORD",
+      });
 
-    client.on("message", (topic, message) => {
-      try {
-        const payload = JSON.parse(message.toString());
+      client.on("connect", () => {
+        console.log("[MQTT] Connected to HiveMQ");
+        client?.subscribe(`dwipha/+/+`);
+      });
 
-        if (topic.includes("sawah")) {
-          if (topic.includes("ph")) {
-            setSawahPH(payload.value);
-            setSawahPhData((prev) => [
-              ...prev.slice(1),
-              { time: "Now", ph: payload.value },
-            ]);
-          } else if (topic.includes("water_level")) {
-            setSawahWaterLevel(payload.value);
+      client.on("message", (topic, message) => {
+        try {
+          const payload = JSON.parse(message.toString());
+
+          if (topic.includes("sawah")) {
+            if (topic.includes("ph")) {
+              setSawahPH(payload.value);
+              setSawahPhData((prev) => [
+                ...prev.slice(1),
+                { time: "Now", ph: payload.value },
+              ]);
+            } else if (topic.includes("water_level")) {
+              setSawahWaterLevel(payload.value);
+            }
+          } else if (topic.includes("kolam")) {
+            if (topic.includes("ph")) {
+              setKolamPH(payload.value);
+              setKolamPhData((prev) => [
+                ...prev.slice(1),
+                { time: "Now", ph: payload.value },
+              ]);
+            } else if (topic.includes("water_level")) {
+              setKolamWaterLevel(payload.value);
+            }
           }
-        } else if (topic.includes("kolam")) {
-          if (topic.includes("ph")) {
-            setKolamPH(payload.value);
-            setKolamPhData((prev) => [
-              ...prev.slice(1),
-              { time: "Now", ph: payload.value },
-            ]);
-          } else if (topic.includes("water_level")) {
-            setKolamWaterLevel(payload.value);
-          }
+        } catch (error) {
+          console.error("[MQTT] Error parsing message:", error);
         }
-      } catch (error) {
-        console.error("Error parsing MQTT message:", error);
-      }
-    });
+      });
 
-    const sawahInitialData = Array.from({ length: 6 }, (_, i) => ({
-      time: "Now",
-      ph: 7 + Math.random() * 0.5 - 0.25,
-    }));
-    setSawahPhData(sawahInitialData);
+      client.on("error", (error) => {
+        console.warn("[MQTT] Connection error (using database polling instead):", error);
+      });
+    } catch (error) {
+      console.warn("[MQTT] MQTT not available (using database polling):", error);
+    }
 
-    const kolamInitialData = Array.from({ length: 6 }, (_, i) => ({
-      time: "Now",
-      ph: 7.4 + Math.random() * 0.5 - 0.25,
-    }));
-    setKolamPhData(kolamInitialData);
-
-    const interval = setInterval(() => {
-      const newSawahPH = 7 + Math.random() * 0.4 - 0.2;
-      setSawahPH(newSawahPH);
-      setSawahPhData((prev) => [
-        ...prev.slice(1),
-        { time: "Now", ph: newSawahPH },
-      ]);
-      setSawahWaterLevel((prev) =>
-        Math.max(5, Math.min(80, prev + (Math.random() * 6 - 3))),
-      );
-
-      const newKolamPH = 7.4 + Math.random() * 0.4 - 0.2;
-      setKolamPH(newKolamPH);
-      setKolamPhData((prev) => [
-        ...prev.slice(1),
-        { time: "Now", ph: newKolamPH },
-      ]);
-      setKolamWaterLevel((prev) =>
-        Math.max(10, Math.min(150, prev + (Math.random() * 8 - 4))),
-      );
-    }, 3000);
-
-    // Cleanup function
+    // Cleanup
     return () => {
-      client.end();
-      clearInterval(interval);
+      if (client) {
+        client.end();
+      }
     };
   }, []);
 

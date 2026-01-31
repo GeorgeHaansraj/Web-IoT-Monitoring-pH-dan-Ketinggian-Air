@@ -2,16 +2,18 @@
 
 **Date**: 2026-01-31  
 **Status**: ✅ Confirmed & Working  
-**Database**: Neon PostgreSQL  
+**Database**: Neon PostgreSQL
 
 ---
 
 ## 🎯 Jawaban untuk Pertanyaan Anda
 
 ### Q1: Dashboard Bisa Mencatat Dari Tabel `ph_readings` di Neon?
+
 **✅ YA, BENAR!**
 
 Sistem bekerja seperti ini:
+
 ```
 ESP32 Online
     ↓ POST /api/ph
@@ -26,15 +28,18 @@ Grafik Riwayat pH
 ```
 
 ### Q2: Meskipun ESP Offline, Grafik Tetap Menampilkan Riwayat?
+
 **✅ YA, SUDAH OTOMATIS!**
 
 Kenapa bisa?
+
 1. ✅ Setiap pH yang diterima ESP → disimpan ke database
 2. ✅ Data di database PERSISTENT (tidak hilang)
 3. ✅ Dashboard query database, bukan memory/session
 4. ✅ Grafik ditampilkan dari historical data yang tersimpan
 
 **Skenario:**
+
 ```
 Timeline:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -62,6 +67,7 @@ Dashboard hari ini (03 Januari):
 ## 🔍 Verifikasi Implementasi
 
 ### 1. **Database Layer** (Neon)
+
 ```sql
 -- Tabel ph_readings (PostgreSQL)
 CREATE TABLE ph_readings (
@@ -79,6 +85,7 @@ CREATE TABLE ph_readings (
 ```
 
 ### 2. **API Layer** (Vercel)
+
 ```typescript
 // app/api/ph-history/route.ts
 
@@ -87,8 +94,8 @@ const readings = await prisma.pHReading.findMany({
   where: {
     location,
     timestamp: {
-      gte: dateFrom,  // Dari 24 jam lalu
-      lte: now,       // Sampai sekarang
+      gte: dateFrom, // Dari 24 jam lalu
+      lte: now, // Sampai sekarang
     },
   },
   orderBy: { timestamp: "asc" },
@@ -99,6 +106,7 @@ const readings = await prisma.pHReading.findMany({
 ```
 
 ### 3. **Frontend Layer** (React)
+
 ```typescript
 // components/PHHistoryGraph.tsx
 
@@ -108,7 +116,7 @@ const fetchPhHistory = async () => {
   const response = await fetch(
     `/api/ph-history?location=sawah&range=${range}&limit=100`,
   );
-  
+
   const result = await response.json();
   // result.data = [
   //   { timestamp: "2026-01-31 08:00", ph: 7.1, ... },
@@ -116,8 +124,8 @@ const fetchPhHistory = async () => {
   //   { timestamp: "2026-01-31 10:00", ph: 7.3, ... },
   //   ... (semua data tersimpan di database)
   // ]
-  
-  setData(result.data);  // Update chart dengan data REAL
+
+  setData(result.data); // Update chart dengan data REAL
 };
 ```
 
@@ -128,6 +136,7 @@ const fetchPhHistory = async () => {
 ### Scenario: 3 Hari Testing
 
 **Day 1 (Jumat):**
+
 ```
 08:00 - pH 7.10 (ESP online)
 09:00 - pH 7.15 (ESP online)
@@ -138,6 +147,7 @@ const fetchPhHistory = async () => {
 ```
 
 **Day 2 (Sabtu):**
+
 ```
 [Whole day - ESP OFFLINE]
 └─ No readings
@@ -145,6 +155,7 @@ const fetchPhHistory = async () => {
 ```
 
 **Day 3 (Minggu):**
+
 ```
 08:00 - pH 7.05 (ESP online again)
 09:00 - pH 7.08 (ESP online)
@@ -152,6 +163,7 @@ const fetchPhHistory = async () => {
 ```
 
 **Dashboard Query "Hari" (last 7 days):**
+
 ```
 Senin    (no data)    [blank]
 Selasa   (no data)    [blank]
@@ -170,6 +182,7 @@ Minggu   (2 readings) pH 7.07 (avg) ← TETAP ADA!
 ## 🔐 Data Persistence Guarantee
 
 ### Write Protection
+
 ```sql
 -- Setiap data pH yang INSERT tidak bisa ter-DELETE secara otomatis
 -- Hanya manual DELETE via admin jika perlu
@@ -179,11 +192,12 @@ VALUES (7.15, 'sawah', NOW(), 'ESP32-001', 28.5);
 ```
 
 ### Read Consistency
+
 ```sql
 -- Query SELALU return data yang ada di database
 -- Tidak ada cache/session yang bisa stale
-SELECT * FROM ph_readings 
-WHERE location = 'sawah' 
+SELECT * FROM ph_readings
+WHERE location = 'sawah'
 AND timestamp > NOW() - INTERVAL '24 hours'
 ORDER BY timestamp ASC;
 
@@ -191,7 +205,9 @@ ORDER BY timestamp ASC;
 ```
 
 ### Database Backup
+
 Neon PostgreSQL otomatis backup:
+
 - ✅ Daily backups
 - ✅ Point-in-time recovery
 - ✅ Data redundancy
@@ -205,16 +221,18 @@ Neon PostgreSQL otomatis backup:
 ### Test 1: Manual Insert + Query
 
 **Step 1: Insert manual pH data**
+
 ```bash
 curl -X POST https://your-domain.com/api/ph \
   -H "Content-Type: application/json" \
   -d '{"value": 7.25, "location": "sawah", "deviceId": "TEST-001"}'
 
-# Response: 
+# Response:
 # {"id":"...","value":7.25,"location":"sawah","timestamp":"2026-01-31T10:30:00Z"}
 ```
 
 **Step 2: Query database via API**
+
 ```bash
 curl "https://your-domain.com/api/ph-history?location=sawah&range=hour"
 
@@ -242,6 +260,7 @@ curl "https://your-domain.com/api/ph-history?location=sawah&range=hour"
 ### Test 2: Offline then Online
 
 **Step 1: Push pH data (ESP online)**
+
 ```bash
 # 5 times, every 10 seconds
 for i in {1..5}; do
@@ -252,12 +271,14 @@ done
 ```
 
 **Step 2: Stop ESP (simulate offline)**
+
 ```bash
 # Do nothing, just wait 5 minutes
 sleep 300
 ```
 
 **Step 3: Query grafik (meski offline)**
+
 ```bash
 # ESP still offline, tapi query dari dashboard
 curl "https://your-domain.com/api/ph-history?location=sawah&range=hour"
@@ -267,6 +288,7 @@ curl "https://your-domain.com/api/ph-history?location=sawah&range=hour"
 ```
 
 **Step 4: ESP online lagi**
+
 ```bash
 # Push 3 more readings
 for i in {1..3}; do
@@ -277,6 +299,7 @@ done
 ```
 
 **Step 5: Query grafik lagi**
+
 ```bash
 curl "https://your-domain.com/api/ph-history?location=sawah&range=hour"
 
@@ -342,6 +365,7 @@ Neon Database (per free tier):
 ### Skenario ESP Offline 1 Hari
 
 **Before (Day 1):**
+
 ```
 Dashboard → Riwayat pH
 Range: Hari (last 7 days)
@@ -356,6 +380,7 @@ Minggu    (future)
 ```
 
 **After (Gap tetap terlihat, tapi data sebelumnya AMAN):**
+
 ```
 Senin     [■■■■■]  pH 7.1 (50 readings)  ← MASIH ADA
 Selasa    [■■■■□]  pH 7.2 (45 readings)  ← MASIH ADA
@@ -379,23 +404,23 @@ SELECT COUNT(*) as total_readings FROM ph_readings;
 -- Output: 1234 (example)
 
 -- Check records per location
-SELECT location, COUNT(*) as count FROM ph_readings 
+SELECT location, COUNT(*) as count FROM ph_readings
 GROUP BY location;
 -- Output:
 -- kolam  | 500
 -- sawah  | 734
 
 -- Check time range
-SELECT MIN(timestamp) as oldest, MAX(timestamp) as newest 
+SELECT MIN(timestamp) as oldest, MAX(timestamp) as newest
 FROM ph_readings;
 -- Output:
 -- oldest       | newest
 -- 2026-01-15   | 2026-01-31 (data dari 16 hari lalu tetap ada)
 
 -- Check gaps (offline periods)
-SELECT timestamp, value FROM ph_readings 
-WHERE location = 'sawah' 
-ORDER BY timestamp DESC 
+SELECT timestamp, value FROM ph_readings
+WHERE location = 'sawah'
+ORDER BY timestamp DESC
 LIMIT 50;
 -- Lihat gaps (NULL atau kosong) di timestamp
 -- Tapi semua data existing tetap ada
@@ -418,14 +443,14 @@ LIMIT 50;
 
 ## 🎯 Summary
 
-| Aspek | Status |
-|-------|--------|
-| **Mencatat dari tabel ph_readings Neon?** | ✅ YES |
-| **Data persistent meski offline?** | ✅ YES |
-| **Grafik tetap tampil riwayat?** | ✅ YES |
-| **Data bisa ter-delete auto?** | ❌ NO (aman) |
-| **Backup tersedia?** | ✅ YES (Neon) |
-| **Storage unlimited?** | ✅ Praktis unlimited |
+| Aspek                                     | Status               |
+| ----------------------------------------- | -------------------- |
+| **Mencatat dari tabel ph_readings Neon?** | ✅ YES               |
+| **Data persistent meski offline?**        | ✅ YES               |
+| **Grafik tetap tampil riwayat?**          | ✅ YES               |
+| **Data bisa ter-delete auto?**            | ❌ NO (aman)         |
+| **Backup tersedia?**                      | ✅ YES (Neon)        |
+| **Storage unlimited?**                    | ✅ Praktis unlimited |
 
 ---
 
@@ -437,7 +462,6 @@ LIMIT 50;
 ✅ Database **permanent & tidak pernah dihapus** otomatis  
 ✅ Grafik **query database**, bukan memory/dummy  
 ✅ **Meski ESP offline 1 minggu**, data lama **tetap visible**  
-✅ Ketika ESP online lagi, **data baru** ditambahkan ke chart  
+✅ Ketika ESP online lagi, **data baru** ditambahkan ke chart
 
 **Hasilnya**: Grafik Riwayat pH Anda adalah **complete historical record** dari semua pembacaan, dengan atau tanpa ESP online! 📊✨
-
