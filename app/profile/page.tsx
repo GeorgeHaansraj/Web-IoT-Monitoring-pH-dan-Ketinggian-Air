@@ -6,19 +6,10 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   User,
-  Shield,
   LogOut,
-  Briefcase,
-  PhoneCall,
-  Contact2Icon,
-  Bell,
   Lock,
-  Eye,
   Check,
   X,
-  MailIcon,
-  History,
-  AlertCircle,
   Power,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -33,13 +24,11 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 
 export default function ProfilePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
-  const [openNotificationDialog, setOpenNotificationDialog] = useState(false);
   const [showPumpHistory, setShowPumpHistory] = useState(false);
   const [pumpHistory, setPumpHistory] = useState<any[]>([]);
   const [pumpHistoryLoading, setPumpHistoryLoading] = useState(false);
@@ -50,16 +39,6 @@ export default function ProfilePage() {
   });
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState(false);
-  const [notifications, setNotifications] = useState({
-    email: true,
-    sms: false,
-    push: true,
-  });
-  const [showPrivacyDialog, setShowPrivacyDialog] = useState(false);
-  const [privacy, setPrivacy] = useState({
-    profilePublic: false,
-    twoFactorEnabled: false,
-  });
 
   // Fetch pump history when modal opens
   useEffect(() => {
@@ -127,40 +106,14 @@ export default function ProfilePage() {
       <div className="space-y-3">
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
           <div className="bg-blue-50 p-2 rounded-lg">
-            <Shield className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-500 uppercase font-bold">
-              Hak Akses
-            </p>
-            <p className="text-sm font-semibold text-gray-700 capitalize">
-              Pemilik {user?.role || "Umum"}
-            </p>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="bg-green-50 p-2 rounded-lg">
-            <Contact2Icon className="w-5 h-5 text-green-600" />
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-500 uppercase font-bold">
-              Nomor Telepon
-            </p>
-            <p className="text-sm font-semibold text-gray-700">
-              {user?.phone || "082379238544"}
-            </p>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="bg-red-50 p-2 rounded-lg">
-            <MailIcon className="w-5 h-5 text-red-400" />
+            <User className="w-5 h-5 text-blue-600" />
           </div>
           <div>
             <p className="text-[10px] text-gray-500 uppercase font-bold">
               Email
             </p>
             <p className="text-sm font-semibold text-gray-700">
-              {user?.email || "georgehaansraj@example.com"}
+              {user?.email || "user@example.com"}
             </p>
           </div>
         </div>
@@ -170,28 +123,7 @@ export default function ProfilePage() {
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-gray-700 px-1">Pengaturan</h3>
 
-        {/* Notifikasi */}
-        <button
-          onClick={() => setOpenNotificationDialog(true)}
-          className="w-full bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition"
-        >
-          <div className="flex items-center gap-4">
-            <div className="bg-orange-50 p-2 rounded-lg">
-              <AlertCircle className="w-5 h-5 text-orange-600" />
-            </div>
-            <div className="text-left">
-              <p className="text-xs text-gray-500 uppercase font-bold">
-                Konfigurasi Ambang Batas
-              </p>
-              <p className="text-sm font-semibold text-gray-700">
-                Kelola Ambang Batas pH dan Level Air
-              </p>
-            </div>
-          </div>
-          <ArrowLeft className="w-4 h-4 text-gray-400 rotate-180" />
-        </button>
-
-        {/* Privasi & Keamanan */}
+        {/* Riwayat Pompa */}
         <button
           onClick={() => setShowPumpHistory(true)}
           className="w-full bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition"
@@ -206,27 +138,6 @@ export default function ProfilePage() {
               </p>
               <p className="text-sm font-semibold text-gray-700">
                 Lihat Aktivasi Pompa Terakhir
-              </p>
-            </div>
-          </div>
-          <ArrowLeft className="w-4 h-4 text-gray-400 rotate-180" />
-        </button>
-
-        {/* Log Operasional */}
-        <button
-          onClick={() => setShowPrivacyDialog(true)}
-          className="w-full bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition"
-        >
-          <div className="flex items-center gap-4">
-            <div className="bg-indigo-50 p-2 rounded-lg">
-              <History className="w-5 h-5 text-indigo-600" />
-            </div>
-            <div className="text-left">
-              <p className="text-xs text-gray-500 uppercase font-bold">
-                Log Operasional
-              </p>
-              <p className="text-sm font-semibold text-gray-700">
-                Lihat Riwayat Aktivasi Pompa dan Log Error
               </p>
             </div>
           </div>
@@ -341,135 +252,6 @@ export default function ProfilePage() {
             >
               Ubah Sandi
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog Notifikasi */}
-      <Dialog
-        open={openNotificationDialog}
-        onOpenChange={setOpenNotificationDialog}
-      >
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Kelola Notifikasi</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p className="font-medium text-sm text-gray-700">
-                  Notifikasi Email
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Terima update via email
-                </p>
-              </div>
-              <Switch
-                checked={notifications.email}
-                onCheckedChange={(checked) =>
-                  setNotifications({ ...notifications, email: checked })
-                }
-              />
-            </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p className="font-medium text-sm text-gray-700">
-                  Notifikasi SMS
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Terima update via SMS
-                </p>
-              </div>
-              <Switch
-                checked={notifications.sms}
-                onCheckedChange={(checked) =>
-                  setNotifications({ ...notifications, sms: checked })
-                }
-              />
-            </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p className="font-medium text-sm text-gray-700">
-                  Notifikasi Push
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Terima update via aplikasi
-                </p>
-              </div>
-              <Switch
-                checked={notifications.push}
-                onCheckedChange={(checked) =>
-                  setNotifications({ ...notifications, push: checked })
-                }
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setOpenNotificationDialog(false)}
-            >
-              Tutup
-            </Button>
-            <Button
-              onClick={() => {
-                setOpenNotificationDialog(false);
-              }}
-            >
-              Simpan
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Dialog Privasi & Keamanan */}
-      <Dialog open={showPrivacyDialog} onOpenChange={setShowPrivacyDialog}>
-        <DialogContent className="max-w-sm">
-          <DialogHeader>
-            <DialogTitle>Pengaturan Privasi & Keamanan</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p className="font-medium text-sm text-gray-700">
-                  Profil Publik
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Biarkan orang lain melihat profil Anda
-                </p>
-              </div>
-              <Switch
-                checked={privacy.profilePublic}
-                onCheckedChange={(checked) =>
-                  setPrivacy({ ...privacy, profilePublic: checked })
-                }
-              />
-            </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p className="font-medium text-sm text-gray-700">
-                  Autentikasi Dua Faktor
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Tingkatkan keamanan akun Anda
-                </p>
-              </div>
-              <Switch
-                checked={privacy.twoFactorEnabled}
-                onCheckedChange={(checked) =>
-                  setPrivacy({ ...privacy, twoFactorEnabled: checked })
-                }
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setShowPrivacyDialog(false)}
-            >
-              Tutup
-            </Button>
-            <Button onClick={() => setShowPrivacyDialog(false)}>Simpan</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

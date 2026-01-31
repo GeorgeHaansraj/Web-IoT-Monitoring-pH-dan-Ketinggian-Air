@@ -26,7 +26,6 @@ async function triggerBridgeRelay(mode: string, state: boolean) {
         "Content-Type": "application/x-www-form-urlencoded",
       },
       body: formData.toString(),
-      timeout: 5000,
     });
 
     if (!response.ok) {
