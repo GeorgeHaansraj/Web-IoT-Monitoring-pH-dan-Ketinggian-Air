@@ -16,46 +16,24 @@ import {
   FlaskConical,
   Waves,
 } from "lucide-react";
-import SawahViz from "@/components/visualizations/SawahViz";
-import KolamViz from "@/components/visualizations/KolamViz";
 import WaterLevelMeter from "@/components/visualizations/WaterLevelMeter";
 import { toast } from "sonner";
-import mqtt from "mqtt";
 
 export default function Dashboard() {
   const router = useRouter();
   const sessionData = useSession();
   const session = sessionData.data;
   const status = sessionData.status;
-
-  type UserRole = "sawah" | "kolam";
-  const userRole = (session?.user as { role?: UserRole })?.role;
   const isLoading = status === "loading";
 
+  // Device Data States
   const [battery, setBattery] = useState(85);
   const [credit, setCredit] = useState(50000);
   const [kuota, setKuota] = useState(4.5);
   const [isOnline, setIsOnline] = useState(true);
-
-  // Mode Detail States - untuk ketiga mode
-  const [deviceActualLocation, setDeviceActualLocation] =
-    useState<string>("sawah");
-
-  // Sawah Mode Data
-  const [sawahPumpOn, setSawahPumpOn] = useState(false);
-  const [sawahPH, setSawahPH] = useState(7.37);
-  const [sawahPhData, setSawahPhData] = useState<
-    { time: string; ph: number }[]
-  >([]);
-  const [sawahWaterLevel, setSawahWaterLevel] = useState(45); // dalam cm
-
-  // Kolam Mode Data
-  const [kolamPumpOn, setKolamPumpOn] = useState(false);
-  const [kolamPH, setKolamPH] = useState(7.45);
-  const [kolamPhData, setKolamPhData] = useState<
-    { time: string; ph: number }[]
-  >([]);
-  const [kolamWaterLevel, setKolamWaterLevel] = useState(120); // dalam cm
+  const [currentPH, setCurrentPH] = useState(7.0);
+  const [isPumpOn, setIsPumpOn] = useState(false);
+  const [waterLevel, setWaterLevel] = useState(0);
 
   // Fetch device status from database on mount
   useEffect(() => {
@@ -65,8 +43,6 @@ export default function Dashboard() {
         const data = await response.json();
 
         if (data.battery !== undefined) setBattery(data.battery);
-        if (data.deviceActualLocation)
-          setDeviceActualLocation(data.deviceActualLocation);
       } catch (error) {
         console.error("Error fetching device status:", error);
       }
@@ -77,42 +53,55 @@ export default function Dashboard() {
 
   // Fetch pH Real-time from database
   useEffect(() => {
-    const fetchPhRealtime = async (location: string) => {
+    const fetchPhRealtime = async () => {
       try {
-        const response = await fetch(`/api/ph-latest?location=${location}`);
+        const response = await fetch(`/api/ph-latest?location=sawah`);
         const data = await response.json();
 
         if (data.success && data.value !== null) {
-          if (location === "sawah") {
-            setSawahPH(data.value);
-          } else if (location === "kolam") {
-            setKolamPH(data.value);
-          }
-          console.log(
-            `[PH-REALTIME] Updated ${location} pH: ${data.value} from database`,
-          );
+          setCurrentPH(data.value);
+          console.log(`[PH-REALTIME] Updated pH: ${data.value}`);
         }
       } catch (error) {
-        console.error(`[PH-REALTIME] Error fetching ${location} pH:`, error);
+        console.error(`[PH-REALTIME] Error fetching pH:`, error);
       }
     };
 
-    // Fetch untuk kedua lokasi
-    fetchPhRealtime("sawah");
-    fetchPhRealtime("kolam");
+    fetchPhRealtime();
 
     // Setup polling interval: update setiap 5 detik
     const pollInterval = setInterval(() => {
-      fetchPhRealtime("sawah");
-      fetchPhRealtime("kolam");
+      fetchPhRealtime();
     }, 5000);
 
     return () => clearInterval(pollInterval);
   }, []);
 
-  // Tidak perlu sinkronisasi dengan userRole lagi karena menampilkan semua mode
+  // Fetch water level
+  useEffect(() => {
+    const fetchWaterLevel = async () => {
+      try {
+        const response = await fetch("/api/water-level?location=sawah");
+        const data = await response.json();
 
-  // Simulasi real-time (Tetap sama)
+        if (data.success && data.value !== null) {
+          setWaterLevel(data.value);
+        }
+      } catch (error) {
+        console.error("[WATER-LEVEL] Error fetching:", error);
+      }
+    };
+
+    fetchWaterLevel();
+
+    const pollInterval = setInterval(() => {
+      fetchWaterLevel();
+    }, 5000);
+
+    return () => clearInterval(pollInterval);
+  }, []);
+
+  // Simulasi real-time untuk baterai, pulsa, kuota
   useEffect(() => {
     const interval = setInterval(() => {
       setBattery((prev) => Math.max(0, prev - Math.random() * 0.5));
@@ -120,74 +109,6 @@ export default function Dashboard() {
       setKuota((prev) => Math.max(0, prev - 0.01));
     }, 10000);
     return () => clearInterval(interval);
-  }, []);
-
-  // Mode Detail MQTT Connection & Real-time Updates from Database
-  useEffect(() => {
-    // Try to connect to MQTT (optional, for future enhancement)
-    // For now, rely on database polling via /api/ph-latest
-    let client: ReturnType<typeof mqtt.connect> | null = null;
-
-    try {
-      client = mqtt.connect("wss://YOUR_HIVEMQ_HOST:8884/mqtt", {
-        username: "YOUR_USERNAME",
-        password: "YOUR_PASSWORD",
-      });
-
-      client.on("connect", () => {
-        console.log("[MQTT] Connected to HiveMQ");
-        client?.subscribe(`dwipha/+/+`);
-      });
-
-      client.on("message", (topic, message) => {
-        try {
-          const payload = JSON.parse(message.toString());
-
-          if (topic.includes("sawah")) {
-            if (topic.includes("ph")) {
-              setSawahPH(payload.value);
-              setSawahPhData((prev) => [
-                ...prev.slice(1),
-                { time: "Now", ph: payload.value },
-              ]);
-            } else if (topic.includes("water_level")) {
-              setSawahWaterLevel(payload.value);
-            }
-          } else if (topic.includes("kolam")) {
-            if (topic.includes("ph")) {
-              setKolamPH(payload.value);
-              setKolamPhData((prev) => [
-                ...prev.slice(1),
-                { time: "Now", ph: payload.value },
-              ]);
-            } else if (topic.includes("water_level")) {
-              setKolamWaterLevel(payload.value);
-            }
-          }
-        } catch (error) {
-          console.error("[MQTT] Error parsing message:", error);
-        }
-      });
-
-      client.on("error", (error) => {
-        console.warn(
-          "[MQTT] Connection error (using database polling instead):",
-          error,
-        );
-      });
-    } catch (error) {
-      console.warn(
-        "[MQTT] MQTT not available (using database polling):",
-        error,
-      );
-    }
-
-    // Cleanup
-    return () => {
-      if (client) {
-        client.end();
-      }
-    };
   }, []);
 
   if (status === "loading") {
@@ -198,140 +119,47 @@ export default function Dashboard() {
     );
   }
 
-  // Mode Detail Config & Functions
-  const getPHStatus = (mode: "sawah" | "kolam", ph: number) => {
-    if (mode === "kolam") {
-      // Kolam Ikan Patin
-      if (ph < 6.0) {
-        return {
-          status: "⚠️ WARNING: ASAM",
-          action:
-            "Tambahkan kapur pertanian (Dolomit) secara bertahap. Cek sisa pakan di dasar kolam.",
-          bgColor: "bg-yellow-50 border-yellow-200",
-          textColor: "text-yellow-700",
-        };
-      }
-      if (ph >= 6.0 && ph < 6.5) {
-        return {
-          status: "⚠️ WARNING: ASAM",
-          action:
-            "Tambahkan kapur pertanian (Dolomit) secara bertahap. Cek sisa pakan di dasar kolam.",
-          bgColor: "bg-yellow-50 border-yellow-200",
-          textColor: "text-yellow-700",
-        };
-      }
-      if (ph >= 6.5 && ph <= 8.5) {
-        return {
-          status: "✅ AMAN: OPTIMAL",
-          action: "Kondisi air stabil. Lanjutkan pemantauan rutin.",
-          bgColor: "bg-green-50 border-green-200",
-          textColor: "text-green-700",
-        };
-      }
-      if (ph > 8.5 && ph <= 9.0) {
-        return {
-          status: "⚠️ WARNING: BASA",
-          action:
-            "Lakukan pergantian air sebanyak 20-30%. Amonia berisiko menjadi racun tinggi.",
-          bgColor: "bg-orange-50 border-orange-200",
-          textColor: "text-orange-700",
-        };
-      }
-      if (ph > 9.0) {
-        return {
-          status: "⚠️ WARNING: BASA",
-          action:
-            "Lakukan pergantian air sebanyak 20-30%. Amonia berisiko menjadi racun tinggi.",
-          bgColor: "bg-orange-50 border-orange-200",
-          textColor: "text-orange-700",
-        };
-      }
-    } else if (mode === "sawah") {
-      // Sawah Padi
-      if (ph < 5.0) {
-        return {
-          status: "🚨 ALERT: TANAH ASAM",
-          action:
-            "Segera aplikasikan kapur dolomit atau abu bakar untuk menaikkan pH agar hara tidak terikat.",
-          bgColor: "bg-red-50 border-red-200",
-          textColor: "text-red-700",
-        };
-      }
-      if (ph >= 5.0 && ph < 5.5) {
-        return {
-          status: "🚨 ALERT: TANAH ASAM",
-          action:
-            "Segera aplikasikan kapur dolomit atau abu bakar untuk menaikkan pH agar hara tidak terikat.",
-          bgColor: "bg-red-50 border-red-200",
-          textColor: "text-red-700",
-        };
-      }
-      if (ph >= 5.5 && ph <= 7.0) {
-        return {
-          status: "✅ AMAN: SUBUR",
-          action:
-            "Kondisi tanah ideal untuk penyerapan NPK. Pertahankan genangan air.",
-          bgColor: "bg-green-50 border-green-200",
-          textColor: "text-green-700",
-        };
-      }
-      if (ph > 7.0 && ph <= 7.5) {
-        return {
-          status: "⚠️ WARNING: ALKALIN",
-          action:
-            "Gunakan pupuk yang bersifat mengasamkan seperti ZA (Ammonium Sulfat) untuk menekan pH.",
-          bgColor: "bg-yellow-50 border-yellow-200",
-          textColor: "text-yellow-700",
-        };
-      }
-      if (ph > 7.5) {
-        return {
-          status: "⚠️ WARNING: ALKALIN",
-          action:
-            "Gunakan pupuk yang bersifat mengasamkan seperti ZA (Ammonium Sulfat) untuk menekan pH.",
-          bgColor: "bg-yellow-50 border-yellow-200",
-          textColor: "text-yellow-700",
-        };
-      }
+  // Function to determine pH color based on value
+  const getPhColor = (ph: number): string => {
+    if (ph <= 3) {
+      return "#DC2626";
+    } else if (ph <= 6) {
+      const ratio = (ph - 3) / 3;
+      const red = Math.round(255);
+      const green = Math.round(127 + ratio * 80);
+      const blue = Math.round(0);
+      return `rgb(${red}, ${green}, ${blue})`;
+    } else if (ph < 7) {
+      const ratio = (ph - 6) / 1;
+      const red = Math.round(200 - ratio * 100);
+      const green = Math.round(200);
+      const blue = Math.round(0 + ratio * 50);
+      return `rgb(${red}, ${green}, ${blue})`;
+    } else if (ph === 7) {
+      return "#16A34A";
+    } else if (ph < 8) {
+      const ratio = (ph - 7) / 1;
+      const red = Math.round(100 - ratio * 100);
+      const green = Math.round(200 - ratio * 50);
+      const blue = Math.round(50 + ratio * 150);
+      return `rgb(${red}, ${green}, ${blue})`;
+    } else if (ph <= 9) {
+      const ratio = (ph - 8) / 1;
+      return `rgb(${Math.round(100 - ratio * 50)}, ${Math.round(150 - ratio * 30)}, ${Math.round(200 + ratio * 30)})`;
+    } else if (ph <= 14) {
+      const ratio = (ph - 9) / 5;
+      const red = Math.round(50 + ratio * 80);
+      const green = Math.round(120 - ratio * 60);
+      const blue = Math.round(230 - ratio * 50);
+      return `rgb(${red}, ${green}, ${blue})`;
     }
-    return {
-      status: "⚠️ ABNORMAL",
-      action: "Periksa data sensor pH.",
-      bgColor: "bg-gray-50 border-gray-200",
-      textColor: "text-gray-700",
-    };
-  };
-
-  const modeConfig = {
-    sawah: {
-      name: "Sawah",
-      icon: "🌾",
-      activeColor: "text-green-600",
-      activeBg: "bg-green-50",
-      border: "border-green-500",
-    },
-    kolam: {
-      name: "Kolam",
-      icon: "🐟",
-      activeColor: "text-cyan-600",
-      activeBg: "bg-cyan-50",
-      border: "border-cyan-500",
-    },
-  };
-
-  const renderWaterVisualization = () => {
-    // Monitoring section always shows sawah data with cm measurement
-    return (
-      <WaterLevelMeter level={sawahWaterLevel} mode="sawah" maxHeight={80} />
-    );
+    return "#16A34A";
   };
 
   const handlePumpToggle = async (checked: boolean) => {
-    // Update state UI dulu
-    setSawahPumpOn(checked);
+    setIsPumpOn(checked);
 
     try {
-      // Kirim status pompa ke API
       const response = await fetch("/api/pump-relay", {
         method: "POST",
         headers: {
@@ -350,7 +178,6 @@ export default function Dashboard() {
 
       const data = await response.json();
 
-      // Toast notifikasi
       if (checked) {
         toast("Pompa air dihidupkan", {
           style: {
@@ -370,13 +197,12 @@ export default function Dashboard() {
       }
 
       console.log(
-        `HTTP: Pump Sawah ${checked ? "ON" : "OFF"} - Response:`,
+        `HTTP: Pump ${checked ? "ON" : "OFF"} - Response:`,
         data,
       );
     } catch (error) {
       console.error("Error sending pump status:", error);
-      // Revert state jika error
-      setSawahPumpOn(!checked);
+      setIsPumpOn(!checked);
       toast("Gagal mengontrol pompa", {
         style: {
           background: "#ffffff",
@@ -385,54 +211,6 @@ export default function Dashboard() {
         },
       });
     }
-  };
-
-  // Monitoring section always shows sawah data
-  const getCurrentPH = () => sawahPH;
-  const getPumpStatus = () => sawahPumpOn;
-
-  // Function to determine pH color based on value
-  const getPhColor = (ph: number): string => {
-    if (ph <= 3) {
-      // Asam Kuat (pH 1-3): Merah tua/cerah
-      return "#DC2626";
-    } else if (ph <= 6) {
-      // Asam Lemah (pH 4-6): Orange hingga Kuning
-      const ratio = (ph - 3) / 3; // 0 to 1
-      const red = Math.round(255);
-      const green = Math.round(127 + ratio * 80); // 127 (orange) to 207 (yellow)
-      const blue = Math.round(0);
-      return `rgb(${red}, ${green}, ${blue})`;
-    } else if (ph < 7) {
-      // Transitional (pH 6-7): Kuning menuju Hijau
-      const ratio = (ph - 6) / 1; // 0 to 1
-      const red = Math.round(200 - ratio * 100); // 200 to 100
-      const green = Math.round(200);
-      const blue = Math.round(0 + ratio * 50); // 0 to 50
-      return `rgb(${red}, ${green}, ${blue})`;
-    } else if (ph === 7) {
-      // Netral (pH 7): Hijau
-      return "#16A34A";
-    } else if (ph < 8) {
-      // Transitional (pH 7-8): Hijau menuju Biru
-      const ratio = (ph - 7) / 1; // 0 to 1
-      const red = Math.round(100 - ratio * 100); // 100 to 0
-      const green = Math.round(200 - ratio * 50); // 200 to 150
-      const blue = Math.round(50 + ratio * 150); // 50 to 200
-      return `rgb(${red}, ${green}, ${blue})`;
-    } else if (ph <= 9) {
-      // Basa Lemah (pH 8-9): Biru muda hingga biru langit
-      const ratio = (ph - 8) / 1; // 0 to 1
-      return `rgb(${Math.round(100 - ratio * 50)}, ${Math.round(150 - ratio * 30)}, ${Math.round(200 + ratio * 30)})`;
-    } else if (ph <= 14) {
-      // Basa Kuat (pH 10-14): Biru tua hingga ungu
-      const ratio = (ph - 9) / 5; // 0 to 1
-      const red = Math.round(50 + ratio * 80); // 50 to 130
-      const green = Math.round(120 - ratio * 60); // 120 to 60
-      const blue = Math.round(230 - ratio * 50); // 230 to 180
-      return `rgb(${red}, ${green}, ${blue})`;
-    }
-    return "#16A34A"; // Default hijau
   };
 
   return (
@@ -447,7 +225,6 @@ export default function Dashboard() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Link ke Halaman Profil */}
           <Link
             href="/profile"
             className="p-2 text-gray-400 hover:text-gray-800 transition-colors"
@@ -456,7 +233,6 @@ export default function Dashboard() {
             <UserCircle className="w-8 h-8" />
           </Link>
 
-          {/* Tombol Logout */}
           <button
             onClick={() => signOut()}
             className="p-2 text-gray-400 hover:text-red-500 transition-colors"
@@ -467,7 +243,7 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* System Info - GRADIENT UI */}
+      {/* System Info */}
       <div className="bg-white rounded-lg shadow-md p-6 space-y-4 border border-gray-100">
         <h2 className="text-xl mb-4 font-semibold">Informasi Sistem</h2>
 
@@ -531,65 +307,9 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Mode Status Cards - Menampilkan status masing-masing lahan (vertikal) */}
-      <div className="space-y-3">
-        <h2 className="text-xl font-semibold px-1">Status Lahan</h2>
-
-        {/* Sawah Card */}
-        <div
-          className={`rounded-lg border p-4 ${getPHStatus("sawah", sawahPH).bgColor}`}
-        >
-          <div className="flex items-start gap-3">
-            <div className="text-3xl">🌾</div>
-            <div className="flex-1">
-              <div
-                className={`font-bold text-lg ${getPHStatus("sawah", sawahPH).textColor}`}
-              >
-                {modeConfig.sawah.name} - pH {sawahPH.toFixed(2)}
-              </div>
-              <div
-                className={`text-sm font-semibold mb-2 ${getPHStatus("sawah", sawahPH).textColor}`}
-              >
-                {getPHStatus("sawah", sawahPH).status}
-              </div>
-              <div className="text-xs text-gray-700">
-                {getPHStatus("sawah", sawahPH).action}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Kolam Card */}
-        <div
-          className={`rounded-lg border p-4 ${getPHStatus("kolam", kolamPH).bgColor}`}
-        >
-          <div className="flex items-start gap-3">
-            <div className="text-3xl">🐟</div>
-            <div className="flex-1">
-              <div
-                className={`font-bold text-lg ${getPHStatus("kolam", kolamPH).textColor}`}
-              >
-                {modeConfig.kolam.name} - pH {kolamPH.toFixed(2)}
-              </div>
-              <div
-                className={`text-sm font-semibold mb-2 ${getPHStatus("kolam", kolamPH).textColor}`}
-              >
-                {getPHStatus("kolam", kolamPH).status}
-              </div>
-              <div className="text-xs text-gray-700">
-                {getPHStatus("kolam", kolamPH).action}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Monitoring Section - Fixed untuk Sawah */}
+      {/* Monitoring Section */}
       <div className="bg-white rounded-lg shadow-md p-6 border border-gray-100">
-        <h2 className="text-xl mb-1 font-semibold">Monitoring Realtime</h2>
-        <p className="text-xs text-gray-500 mb-4">
-          Data dari Sawah (Mode Default)
-        </p>
+        <h2 className="text-xl mb-1 font-semibold">Monitoring & Kontrol</h2>
         <div className="space-y-4">
           {/* pH Real-time Card */}
           <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-6 border border-gray-100">
@@ -600,9 +320,9 @@ export default function Dashboard() {
             <div className="text-center">
               <div
                 className="text-7xl tracking-tighter font-semibold transition-colors duration-500"
-                style={{ color: getPhColor(getCurrentPH()) }}
+                style={{ color: getPhColor(currentPH) }}
               >
-                {getCurrentPH().toFixed(2)}
+                {currentPH.toFixed(2)}
               </div>
             </div>
           </div>
@@ -614,37 +334,37 @@ export default function Dashboard() {
               <h2 className="text-lg text-black">Selisih Permukaan Air</h2>
             </div>
             <div className="mb-4 flex justify-center">
-              {renderWaterVisualization()}
+              <WaterLevelMeter level={waterLevel} mode="sawah" maxHeight={80} />
             </div>
           </div>
         </div>
 
         {/* Kontrol Pompa */}
-        <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100">
+        <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100 mt-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Droplet
                 className={`w-6 h-6 ${
-                  getPumpStatus() ? "text-blue-600" : "text-gray-400"
+                  isPumpOn ? "text-blue-600" : "text-gray-400"
                 }`}
               />
               <div>
                 <h2 className="text-lg font-semibold">Kontrol Pompa</h2>
                 <p className="text-xs text-gray-500">
-                  {getPumpStatus() ? "Pompa Aktif" : "Pompa Mati"}
+                  {isPumpOn ? "Pompa Aktif" : "Pompa Mati"}
                 </p>
               </div>
             </div>
             <Switch
-              checked={getPumpStatus()}
+              checked={isPumpOn}
               onCheckedChange={handlePumpToggle}
               className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors px-1 p-3 ${
-                getPumpStatus() ? "bg-blue-600" : "bg-gray-300"
+                isPumpOn ? "bg-blue-600" : "bg-gray-300"
               }`}
             >
               <span
                 className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                  getPumpStatus() ? "translate-x-6" : "translate-x-0"
+                  isPumpOn ? "translate-x-6" : "translate-x-0"
                 }`}
               />
             </Switch>

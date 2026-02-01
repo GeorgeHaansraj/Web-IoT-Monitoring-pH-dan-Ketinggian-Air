@@ -6,18 +6,13 @@ import { useSession, signOut } from "next-auth/react";
 import {
   ArrowLeft,
   Users,
-  Settings,
-  BarChart3,
-  AlertCircle,
   Plus,
   Trash2,
   Edit,
-  Eye,
-  EyeOff,
+  LogOut,
   Battery,
   DollarSign,
   Wifi,
-  LogOut,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -28,17 +23,8 @@ interface User {
   id: string;
   username: string;
   email: string;
-  role: "admin" | "user" | "operator";
-  location: "sawah" | "kolam" | "both";
   isActive: boolean;
   createdAt: string;
-}
-
-interface SystemStats {
-  totalUsers: number;
-  activeDevices: number;
-  systemHealth: number;
-  lastSync: string;
 }
 
 export default function AdminPage() {
@@ -46,78 +32,47 @@ export default function AdminPage() {
   const sessionData = useSession();
   const session = sessionData.data;
   const status = sessionData.status;
-  
+
   const userRole = (session?.user as { role?: string })?.role;
   const isAdmin = userRole === "admin";
   const isLoading = status === "loading";
 
-  const [activeTab, setActiveTab] = useState<"users" | "devices" | "settings">(
-    "users",
-  );
   const [users, setUsers] = useState<User[]>([
     {
       id: "1",
       username: "admin_user",
       email: "admin@example.com",
-      role: "admin",
-      location: "both",
       isActive: true,
       createdAt: "2025-01-01",
     },
-    {
-      id: "2",
-      username: "operator_sawah",
-      email: "operator@example.com",
-      role: "operator",
-      location: "sawah",
-      isActive: true,
-      createdAt: "2025-01-15",
-    },
   ]);
-
-  const [stats, setStats] = useState<SystemStats>({
-    totalUsers: 2,
-    activeDevices: 2,
-    systemHealth: 98,
-    lastSync: "2026-01-24 14:30:00",
-  });
 
   const [showAddUserForm, setShowAddUserForm] = useState(false);
   const [newUser, setNewUser] = useState({
     username: "",
     email: "",
     password: "",
-    role: "user" as "user" | "operator" | "admin",
-    location: "sawah" as "sawah" | "kolam" | "both",
   });
-
-  const [showPasswordFields, setShowPasswordFields] = useState<{
-    [key: string]: boolean;
-  }>({});
 
   // System information states
   const [battery, setBattery] = useState(79.5);
   const [credit, setCredit] = useState(48800);
   const [kuota, setKuota] = useState(4.26);
-  const [activeMode, setActiveMode] = useState("sawah");
 
   // Check admin authentication and redirect if needed
   useEffect(() => {
-    // Wait for session to finish loading
     if (status === "loading") {
       return;
     }
 
-    // Redirect if not authenticated or not admin
     if (status === "unauthenticated" || !session || !isAdmin) {
       router.push("/login");
       return;
     }
   }, [status, session, isAdmin, router]);
 
-  // Fetch users from database only after admin is confirmed
+  // Fetch users from database
   useEffect(() => {
-    // Only fetch if user is authenticated and is admin
     if (status !== "authenticated" || !isAdmin) {
       return;
     }
@@ -133,15 +88,9 @@ export default function AdminPage() {
 
         if (data.users && Array.isArray(data.users)) {
           setUsers(data.users);
-          // Update total users count
-          setStats((prev) => ({
-            ...prev,
-            totalUsers: data.users.length,
-          }));
         }
       } catch (error) {
         console.error("Error fetching users:", error);
-        // Don't show error toast for initial data load, use defaults
       }
     };
 
@@ -149,18 +98,16 @@ export default function AdminPage() {
       try {
         const response = await fetch("/api/device-status");
         if (!response.ok) {
-          console.warn("Failed to fetch device status, using default values");
+          console.warn("Failed to fetch device status");
           return;
         }
         const data = await response.json();
 
         if (data.battery !== undefined) setBattery(data.battery);
-        if (data.signal !== undefined) setCredit(data.signal * 1000); // Use signal as credit mock
+        if (data.signal !== undefined) setCredit(data.signal * 1000);
         if (data.kuota !== undefined) setKuota(data.kuota);
-        if (data.activeMode) setActiveMode(data.activeMode);
       } catch (error) {
         console.error("Error fetching device status:", error);
-        // Use default values if fetch fails
       }
     };
 
@@ -174,7 +121,6 @@ export default function AdminPage() {
     router.push("/login");
   };
 
-  // Show loading while checking session or if not authenticated/admin
   if (isLoading || status === "unauthenticated" || !session || !isAdmin) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -200,8 +146,6 @@ export default function AdminPage() {
       id: Math.random().toString(36).substr(2, 9),
       username: newUser.username,
       email: newUser.email,
-      role: newUser.role,
-      location: newUser.location,
       isActive: true,
       createdAt: new Date().toISOString().split("T")[0],
     };
@@ -211,8 +155,6 @@ export default function AdminPage() {
       username: "",
       email: "",
       password: "",
-      role: "user",
-      location: "sawah",
     });
     setShowAddUserForm(false);
     toast.success(`User ${newUser.username} berhasil ditambahkan`);
@@ -243,24 +185,16 @@ export default function AdminPage() {
             </button>
             <div>
               <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-              <p className="text-sm text-gray-500">
-                Kelola pengguna dan sistem monitoring
-              </p>
+              <p className="text-sm text-gray-500">Kelola pengguna sistem</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right text-sm text-gray-500">
-              Last sync: {stats.lastSync}
-            </div>
-            <button
-              onClick={handleLogout}
-              className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition border border-red-200"
-              title="Logout dari panel admin"
-            >
-              <LogOut className="w-4 h-4" />
-              <span className="text-sm font-medium">Logout</span>
-            </button>
-          </div>
+          <button
+            onClick={handleLogout}
+            className="flex items-center gap-2 px-4 py-2 text-red-600 hover:bg-red-50 rounded-lg transition border border-red-200"
+          >
+            <LogOut className="w-4 h-4" />
+            <span className="text-sm font-medium">Logout</span>
+          </button>
         </div>
       </div>
 
@@ -273,9 +207,7 @@ export default function AdminPage() {
             <div className="bg-linear-to-br from-green-50 to-green-100 rounded-lg p-4">
               <div className="flex items-center gap-2 mb-2">
                 <Battery className="w-5 h-5 text-green-600" />
-                <span className="text-sm text-gray-600 font-medium">
-                  Baterai
-                </span>
+                <span className="text-sm text-gray-600 font-medium">Baterai</span>
               </div>
               <div className="text-2xl font-bold">{battery.toFixed(1)}%</div>
               <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
@@ -310,366 +242,145 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-blue-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 text-sm">Total Users</p>
-                <p className="text-3xl font-bold">{stats.totalUsers}</p>
-              </div>
-              <Users className="w-12 h-12 text-blue-200" />
+        {/* User Management */}
+        <div className="bg-white rounded-lg shadow">
+          <div className="p-6 border-b border-gray-200 flex justify-between items-center">
+            <div>
+              <h2 className="text-xl font-bold">Daftar Pengguna</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Total {users.length} pengguna terdaftar
+              </p>
             </div>
+            <button
+              onClick={() => setShowAddUserForm(!showAddUserForm)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
+            >
+              <Plus className="w-4 h-4" />
+              Tambah User
+            </button>
           </div>
 
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 text-sm">Mode Aktif</p>
-                <p className="text-2xl font-bold capitalize">
-                  {activeMode || "Tidak Ada"}
-                </p>
-              </div>
-              <BarChart3 className="w-12 h-12 text-green-200" />
-            </div>
-          </div>
-
-          <div className="bg-white rounded-lg shadow p-6 border-l-4 border-green-500">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-gray-500 text-sm">Status Koneksi</p>
-                <p className="text-2xl font-bold text-green-600">Online</p>
-              </div>
-              <AlertCircle className="w-12 h-12 text-green-200" />
-            </div>
-          </div>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex gap-4 mb-6 bg-white rounded-lg p-2 border border-gray-200">
-          <button
-            onClick={() => setActiveTab("users")}
-            className={`px-6 py-2 rounded-md font-medium transition ${
-              activeTab === "users"
-                ? "bg-blue-600 text-white"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            <Users className="inline w-4 h-4 mr-2" />
-            Users
-          </button>
-          <button
-            onClick={() => setActiveTab("devices")}
-            className={`px-6 py-2 rounded-md font-medium transition ${
-              activeTab === "devices"
-                ? "bg-blue-600 text-white"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            <BarChart3 className="inline w-4 h-4 mr-2" />
-            Devices
-          </button>
-          <button
-            onClick={() => setActiveTab("settings")}
-            className={`px-6 py-2 rounded-md font-medium transition ${
-              activeTab === "settings"
-                ? "bg-blue-600 text-white"
-                : "text-gray-600 hover:text-gray-900"
-            }`}
-          >
-            <Settings className="inline w-4 h-4 mr-2" />
-            Settings
-          </button>
-        </div>
-
-        {/* Users Tab */}
-        {activeTab === "users" && (
-          <div className="bg-white rounded-lg shadow">
-            <div className="p-6 border-b border-gray-200 flex justify-between items-center">
-              <h2 className="text-xl font-bold">Daftar Users</h2>
-              <button
-                onClick={() => setShowAddUserForm(!showAddUserForm)}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition flex items-center gap-2"
-              >
-                <Plus className="w-4 h-4" />
-                Tambah User
-              </button>
-            </div>
-
-            {/* Add User Form */}
-            {showAddUserForm && (
-              <div className="p-6 bg-blue-50 border-b border-blue-200">
-                <h3 className="font-bold mb-4">Form Tambah User Baru</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Username
-                    </label>
-                    <Input
-                      placeholder="username"
-                      value={newUser.username}
-                      onChange={(e) =>
-                        setNewUser({ ...newUser, username: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Email
-                    </label>
-                    <Input
-                      placeholder="email@example.com"
-                      type="email"
-                      value={newUser.email}
-                      onChange={(e) =>
-                        setNewUser({ ...newUser, email: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Password
-                    </label>
-                    <Input
-                      placeholder="password"
-                      type="password"
-                      value={newUser.password}
-                      onChange={(e) =>
-                        setNewUser({ ...newUser, password: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Role
-                    </label>
-                    <select
-                      value={newUser.role}
-                      onChange={(e) =>
-                        setNewUser({
-                          ...newUser,
-                          role: e.target.value as "admin" | "user" | "operator",
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    >
-                      <option value="user">User</option>
-                      <option value="operator">Operator</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">
-                      Location
-                    </label>
-                    <select
-                      value={newUser.location}
-                      onChange={(e) =>
-                        setNewUser({
-                          ...newUser,
-                          location: e.target.value as
-                            | "sawah"
-                            | "kolam"
-                            | "both",
-                        })
-                      }
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg"
-                    >
-                      <option value="sawah">Sawah</option>
-                      <option value="kolam">Kolam</option>
-                      <option value="both">Both</option>
-                    </select>
-                  </div>
+          {/* Add User Form */}
+          {showAddUserForm && (
+            <div className="p-6 bg-blue-50 border-b border-blue-200">
+              <h3 className="font-bold mb-4">Tambah Pengguna Baru</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Username
+                  </label>
+                  <Input
+                    placeholder="username"
+                    value={newUser.username}
+                    onChange={(e) =>
+                      setNewUser({ ...newUser, username: e.target.value })
+                    }
+                  />
                 </div>
-                <div className="mt-4 flex gap-2">
-                  <button
-                    onClick={handleAddUser}
-                    className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
-                  >
-                    Simpan
-                  </button>
-                  <button
-                    onClick={() => setShowAddUserForm(false)}
-                    className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition"
-                  >
-                    Batal
-                  </button>
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Email
+                  </label>
+                  <Input
+                    placeholder="email@example.com"
+                    type="email"
+                    value={newUser.email}
+                    onChange={(e) =>
+                      setNewUser({ ...newUser, email: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium mb-2">
+                    Password
+                  </label>
+                  <Input
+                    placeholder="password"
+                    type="password"
+                    value={newUser.password}
+                    onChange={(e) =>
+                      setNewUser({ ...newUser, password: e.target.value })
+                    }
+                  />
                 </div>
               </div>
-            )}
+              <div className="mt-4 flex gap-2">
+                <button
+                  onClick={handleAddUser}
+                  className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition"
+                >
+                  Simpan
+                </button>
+                <button
+                  onClick={() => setShowAddUserForm(false)}
+                  className="bg-gray-300 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-400 transition"
+                >
+                  Batal
+                </button>
+              </div>
+            </div>
+          )}
 
-            {/* Users Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gray-100 border-b border-gray-200">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">
-                      Username
-                    </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">
-                      Email
-                    </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">
-                      Role
-                    </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">
-                      Location
-                    </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">
-                      Joined
-                    </th>
-                    <th className="px-6 py-3 text-center text-sm font-semibold">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {users.map((user) => (
-                    <tr
-                      key={user.id}
-                      className="border-b border-gray-200 hover:bg-gray-50"
-                    >
-                      <td className="px-6 py-4 font-medium">{user.username}</td>
-                      <td className="px-6 py-4 text-gray-600">{user.email}</td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            user.role === "admin"
-                              ? "bg-red-100 text-red-800"
-                              : user.role === "operator"
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-gray-100 text-gray-800"
-                          }`}
+          {/* Users Table */}
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-100 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-sm font-semibold">
+                    Username
+                  </th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold">
+                    Email
+                  </th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-sm font-semibold">
+                    Bergabung
+                  </th>
+                  <th className="px-6 py-3 text-center text-sm font-semibold">
+                    Aksi
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((user) => (
+                  <tr
+                    key={user.id}
+                    className="border-b border-gray-200 hover:bg-gray-50"
+                  >
+                    <td className="px-6 py-4 font-medium">{user.username}</td>
+                    <td className="px-6 py-4 text-gray-600">{user.email}</td>
+                    <td className="px-6 py-4">
+                      <Switch
+                        checked={user.isActive}
+                        onCheckedChange={() =>
+                          handleToggleUserStatus(user.id)
+                        }
+                      />
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500">
+                      {user.createdAt}
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex justify-center gap-2">
+                        <button className="p-2 hover:bg-gray-100 rounded-lg transition text-blue-600">
+                          <Edit className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteUser(user.id)}
+                          className="p-2 hover:bg-red-100 rounded-lg transition text-red-600"
                         >
-                          {user.role}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 text-sm">
-                        <span className="bg-purple-100 text-purple-800 px-2 py-1 rounded text-xs font-medium">
-                          {user.location}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <Switch
-                          checked={user.isActive}
-                          onCheckedChange={() =>
-                            handleToggleUserStatus(user.id)
-                          }
-                        />
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-500">
-                        {user.createdAt}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex justify-center gap-2">
-                          <button className="p-2 hover:bg-gray-100 rounded-lg transition text-blue-600">
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteUser(user.id)}
-                            className="p-2 hover:bg-red-100 rounded-lg transition text-red-600"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
           </div>
-        )}
-
-        {/* Devices Tab */}
-        {activeTab === "devices" && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-bold mb-4">Device Management</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="border-2 border-green-500 rounded-lg p-6 bg-green-50">
-                <h3 className="font-bold text-lg mb-2">Kolam Device</h3>
-                <p className="text-sm text-gray-600 mb-2">
-                  Status:{" "}
-                  <span className="text-green-600 font-semibold">Active</span>
-                </p>
-                <p className="text-sm text-gray-600 mb-2">pH: 7.34</p>
-                <p className="text-sm text-gray-600 mb-2">Water Level: 65%</p>
-                <p className="text-xs text-gray-500">
-                  Last update: 2 minutes ago
-                </p>
-              </div>
-              <div className="border-2 border-yellow-500 rounded-lg p-6 bg-yellow-50">
-                <h3 className="font-bold text-lg mb-2">Sawah Device</h3>
-                <p className="text-sm text-gray-600 mb-2">
-                  Status:{" "}
-                  <span className="text-yellow-600 font-semibold">Idle</span>
-                </p>
-                <p className="text-sm text-gray-600 mb-2">pH: 7.10</p>
-                <p className="text-sm text-gray-600 mb-2">Water Level: 42%</p>
-                <p className="text-xs text-gray-500">
-                  Last update: 5 minutes ago
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Settings Tab */}
-        {activeTab === "settings" && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h2 className="text-xl font-bold mb-6">System Settings</h2>
-            <div className="space-y-6">
-              <div className="flex items-center justify-between pb-4 border-b">
-                <div>
-                  <p className="font-medium">Enable MQTT Auto-Connect</p>
-                  <p className="text-sm text-gray-500">
-                    Otomatis terhubung ke MQTT broker saat startup
-                  </p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between pb-4 border-b">
-                <div>
-                  <p className="font-medium">Enable Data Logging</p>
-                  <p className="text-sm text-gray-500">
-                    Simpan semua data sensor ke database
-                  </p>
-                </div>
-                <Switch defaultChecked />
-              </div>
-              <div className="flex items-center justify-between pb-4 border-b">
-                <div>
-                  <p className="font-medium">Enable Email Alerts</p>
-                  <p className="text-sm text-gray-500">
-                    Kirim notifikasi via email untuk anomali
-                  </p>
-                </div>
-                <Switch />
-              </div>
-              <div className="mt-8">
-                <label className="block text-sm font-medium mb-2">
-                  MQTT Broker URL
-                </label>
-                <Input
-                  placeholder="mqtt://broker.example.com:1883"
-                  defaultValue="mqtt://localhost:1883"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Data Retention (days)
-                </label>
-                <Input type="number" defaultValue="30" />
-              </div>
-              <button className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition mt-6">
-                Simpan Perubahan
-              </button>
-            </div>
-          </div>
-        )}
+        </div>
       </div>
     </div>
   );
