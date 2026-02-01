@@ -14,6 +14,7 @@
 **After:** Real sensor data, state-based control, bidirectional sync
 
 ✅ **Features:**
+
 - Accept real sensor values: `signal_strength` (CSQ 0-31), `pump_status` (true/false)
 - Proper JSON response format for easy parsing
 - State-based command system (NOT trigger-based)
@@ -23,6 +24,7 @@
 - Error handling dengan meaningful responses
 
 **Data Flow:**
+
 ```
 ESP32 POST sensor data (ph, battery, signal, pump_status, level)
    ↓
@@ -42,6 +44,7 @@ ESP32 PARSE & EXECUTE command
 ### 2. **Database Schema Updates**
 
 **New Model: DeviceControl**
+
 ```prisma
 model DeviceControl {
   id       String  @id @default(cuid())
@@ -50,19 +53,21 @@ model DeviceControl {
   deviceId String?                  // ESP32-KKN-01, atau null
   actionBy String?                  // User email atau "system"
   reason   String?                  // Why command was sent
-  
+
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
-  
+
   @@unique([deviceId, mode])
 }
 ```
 
 **Existing Models Enhanced:**
+
 - `MonitoringLog`: Already has `signal_strength` field ✅
 - `PumpStatus`: Already has duration tracking fields ✅
 
 **Migration Applied:**
+
 ```
 20260201191430_add_device_controls_model ✅
 ```
@@ -72,6 +77,7 @@ model DeviceControl {
 ### 3. **New API Endpoint: `/api/device-control`**
 
 **GET** - Fetch current command state
+
 ```bash
 curl http://localhost:3000/api/device-control?mode=sawah
 
@@ -88,6 +94,7 @@ Response:
 ```
 
 **PUT** - Update command state
+
 ```bash
 curl -X PUT http://localhost:3000/api/device-control \
   -H "Content-Type: application/json" \
@@ -108,6 +115,7 @@ Response:
 ```
 
 **Features:**
+
 - ✅ Authentication required (NextAuth session)
 - ✅ Multi-device support
 - ✅ Timestamp tracking untuk command history
@@ -138,6 +146,7 @@ bool getPumpStatus() { ... }  // true/false from GPIO
 ```
 
 **JSON Payload Update:**
+
 ```cpp
 // OLD (hardcoded):
 { "ph": 6.5, "battery": 100, "location": "sawah" }
@@ -156,6 +165,7 @@ bool getPumpStatus() { ... }  // true/false from GPIO
 ```
 
 **Command Execution:**
+
 ```cpp
 String command = responseDoc["command"] | "OFF";  // Parse safely
 
@@ -170,6 +180,7 @@ if (command == "ON") {
 ### 5. **Documentation**
 
 **File 1: `ESP32_IOT_INTEGRATION_GUIDE.md`**
+
 - Complete architecture diagram
 - Hardware wiring guide
 - Detailed implementation steps
@@ -179,6 +190,7 @@ if (command == "ON") {
 - Troubleshooting guide dengan solutions
 
 **File 2: `ESP32_QUICK_CHECKLIST.md`**
+
 - Hardware requirements
 - Pin configuration
 - Copy-paste code snippets
@@ -261,26 +273,31 @@ NEXT.JS DASHBOARD (polling every 5s)
 ## 🔐 Safety Measures
 
 ### 1. **Command Expiry**
+
 - IF `age_seconds > 7200` (2 hours) THEN command = "OFF"
 - Prevents old commands from staying active
 - Implemented in: PHP Bridge + API endpoint
 
 ### 2. **Pump Status Feedback**
+
 - ESP32 sends actual relay GPIO state, not assumed
 - PHP validates feedback matches database
 - Dashboard displays real state, not UI state
 
 ### 3. **Authentication**
+
 - PUT /api/device-control requires NextAuth session
 - Prevents unauthorized command injection
 - User email logged untuk audit trail
 
 ### 4. **Input Validation**
+
 - All numeric inputs cast to proper types
 - String inputs sanitized with regex
 - SQL injection prevention
 
 ### 5. **Command Persistence**
+
 - State stored in database, not in-memory
 - Survives server restarts
 - Survives network interruptions (ESP will retry)
@@ -289,21 +306,22 @@ NEXT.JS DASHBOARD (polling every 5s)
 
 ## 📊 Performance Characteristics
 
-| Metric | Value | Notes |
-|--------|-------|-------|
-| ESP32 Poll Interval | 20s | Balance data freshness vs data usage |
-| Dashboard Polling | 5s | UI updates with 5-25s latency |
-| Database Sync | ~5s | From ESP to Dashboard |
-| Command Expiry | 2 hours | Default OFF for safety |
-| Network Timeout | Handled | ESP retries with backoff |
-| Data Per Poll | ~200 bytes | Very efficient for GSM |
-| Monthly Data (20s poll) | ~260 MB | Manageable for mobile plan |
+| Metric                  | Value      | Notes                                |
+| ----------------------- | ---------- | ------------------------------------ |
+| ESP32 Poll Interval     | 20s        | Balance data freshness vs data usage |
+| Dashboard Polling       | 5s         | UI updates with 5-25s latency        |
+| Database Sync           | ~5s        | From ESP to Dashboard                |
+| Command Expiry          | 2 hours    | Default OFF for safety               |
+| Network Timeout         | Handled    | ESP retries with backoff             |
+| Data Per Poll           | ~200 bytes | Very efficient for GSM               |
+| Monthly Data (20s poll) | ~260 MB    | Manageable for mobile plan           |
 
 ---
 
 ## 🧪 Test Results
 
 ### ✅ Build Status
+
 ```
 ✓ Compiled successfully in 4.1s
 ✓ Running TypeScript... OK
@@ -312,6 +330,7 @@ NEXT.JS DASHBOARD (polling every 5s)
 ```
 
 ### ✅ API Endpoints
+
 ```
 ✓ GET /api/device-control (fetch state)
 ✓ PUT /api/device-control (update command)
@@ -321,6 +340,7 @@ NEXT.JS DASHBOARD (polling every 5s)
 ```
 
 ### ✅ Database
+
 ```
 ✓ Migration applied: 20260201191430_add_device_controls_model
 ✓ DeviceControl model created
@@ -330,6 +350,7 @@ NEXT.JS DASHBOARD (polling every 5s)
 ```
 
 ### ✅ Documentation
+
 ```
 ✓ ESP32_IOT_INTEGRATION_GUIDE.md (2500+ words)
 ✓ ESP32_QUICK_CHECKLIST.md (500+ lines with code)
@@ -342,16 +363,19 @@ NEXT.JS DASHBOARD (polling every 5s)
 ## 📦 Deliverables
 
 ### Code Files
+
 - ✅ `examples/input-enhanced.php` - Enhanced PHP bridge
 - ✅ `app/api/device-control/route.ts` - New REST endpoint
 - ✅ `prisma/schema.prisma` - Updated schema with DeviceControl
 - ✅ `prisma/migrations/20260201191430_...` - Migration SQL
 
 ### Documentation
+
 - ✅ `ESP32_IOT_INTEGRATION_GUIDE.md` - Complete implementation guide
 - ✅ `ESP32_QUICK_CHECKLIST.md` - Developer checklist
 
 ### Examples
+
 - ✅ Sensor reading functions (copy-paste ready)
 - ✅ JSON payload structure
 - ✅ Command response parsing
@@ -362,12 +386,14 @@ NEXT.JS DASHBOARD (polling every 5s)
 ## 🚀 Next Steps
 
 ### Immediate (Today)
+
 1. ✅ Review code & documentation
 2. ✅ Verify build succeeds
 3. ✅ Test API endpoints locally
 4. ✅ Commit to repository
 
 ### Short-term (This week)
+
 1. Upload enhanced ESP32 code to hardware
 2. Configure voltage divider if needed
 3. Test GSM connection & polling
@@ -376,6 +402,7 @@ NEXT.JS DASHBOARD (polling every 5s)
 6. Verify pump_status feedback
 
 ### Medium-term (This month)
+
 1. Deploy to production server
 2. Configure PHP bridge URL
 3. Set up monitoring/alerting
@@ -384,6 +411,7 @@ NEXT.JS DASHBOARD (polling every 5s)
 6. User training on new features
 
 ### Long-term (Future)
+
 1. Add more sensors (temperature, humidity)
 2. Implement predictive analytics
 3. Add machine learning for optimization
@@ -401,6 +429,7 @@ bfe1d62 - Fix build errors: correct MonitoringLog field references
 ```
 
 **Total changes:**
+
 - ✅ 4 new files
 - ✅ 2 files modified
 - ✅ 1 migration created
@@ -410,15 +439,15 @@ bfe1d62 - Fix build errors: correct MonitoringLog field references
 
 ## ✨ Key Achievements
 
-| Achievement | Impact |
-|-------------|--------|
-| State-based control | Prevents command loss on reconnect |
-| Real sensor values | Accurate monitoring, not guesses |
-| Pump status feedback | Know if command actually executed |
-| Multi-device support | Scalable to many ESP32s |
-| Command expiry | Safety against stale commands |
-| Documentation | Easy for team to implement |
-| Production-ready | All error handling included |
+| Achievement          | Impact                             |
+| -------------------- | ---------------------------------- |
+| State-based control  | Prevents command loss on reconnect |
+| Real sensor values   | Accurate monitoring, not guesses   |
+| Pump status feedback | Know if command actually executed  |
+| Multi-device support | Scalable to many ESP32s            |
+| Command expiry       | Safety against stale commands      |
+| Documentation        | Easy for team to implement         |
+| Production-ready     | All error handling included        |
 
 ---
 
@@ -445,6 +474,7 @@ bfe1d62 - Fix build errors: correct MonitoringLog field references
 **Status:** 🟢 READY FOR PRODUCTION DEPLOYMENT
 
 **Maintainer Notes:**
+
 - Code follows Next.js best practices
 - Security measures implemented (auth, validation)
 - Error handling comprehensive

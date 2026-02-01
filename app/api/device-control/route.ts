@@ -4,9 +4,9 @@ import { NextRequest, NextResponse } from "next/server";
 
 /**
  * GET /api/device-control?mode=sawah&device_id=ESP32-KKN-01
- * 
+ *
  * Ambil command state terkini untuk device/mode tertentu
- * 
+ *
  * Response:
  * {
  *   "success": true,
@@ -44,9 +44,7 @@ export async function GET(request: NextRequest) {
     const updated_at = deviceControl?.updatedAt || new Date();
 
     // Hitung umur command
-    const age_seconds = Math.floor(
-      (Date.now() - updated_at.getTime()) / 1000
-    );
+    const age_seconds = Math.floor((Date.now() - updated_at.getTime()) / 1000);
 
     // Jika command lebih dari 2 jam lalu, consider expired (safety measure)
     const is_expired = age_seconds > 7200; // 2 jam
@@ -63,17 +61,21 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("[DEVICE-CONTROL GET] Error:", error);
     return NextResponse.json(
-      { success: false, error: "Failed to fetch device control", command: "OFF" },
-      { status: 500 }
+      {
+        success: false,
+        error: "Failed to fetch device control",
+        command: "OFF",
+      },
+      { status: 500 },
     );
   }
 }
 
 /**
  * PUT /api/device-control
- * 
+ *
  * Update command state untuk device/mode
- * 
+ *
  * Request Body:
  * {
  *   "command": "ON" | "OFF",
@@ -81,7 +83,7 @@ export async function GET(request: NextRequest) {
  *   "device_id": "ESP32-KKN-01" (opsional),
  *   "reason": "User clicked ON button" (opsional)
  * }
- * 
+ *
  * Response:
  * {
  *   "success": true,
@@ -96,7 +98,7 @@ export async function PUT(request: NextRequest) {
     if (!session?.user?.email) {
       return NextResponse.json(
         { success: false, error: "Unauthorized" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -107,14 +109,16 @@ export async function PUT(request: NextRequest) {
     if (!command || !["ON", "OFF", "STANDBY"].includes(command)) {
       return NextResponse.json(
         { success: false, error: "Invalid command" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const mode_clean = (mode || "sawah") as "sawah" | "kolam";
     const device_clean = device_id || null;
 
-    console.log(`[DEVICE-CONTROL PUT] User: ${session.user.email} | Command: ${command} | Mode: ${mode_clean}`);
+    console.log(
+      `[DEVICE-CONTROL PUT] User: ${session.user.email} | Command: ${command} | Mode: ${mode_clean}`,
+    );
 
     // Upsert: Jika sudah ada untuk mode ini, update. Jika belum, create.
     const deviceControl = await prisma.deviceControl.upsert({
@@ -182,7 +186,7 @@ export async function PUT(request: NextRequest) {
     console.error("[DEVICE-CONTROL PUT] Error:", error);
     return NextResponse.json(
       { success: false, error: "Failed to update device control" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

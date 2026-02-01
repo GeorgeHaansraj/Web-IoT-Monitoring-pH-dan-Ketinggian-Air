@@ -35,13 +35,15 @@
 ### 1.1 Hardware Setup
 
 **Required Components:**
+
 - ESP32 Dev Board
-- SIM800L GSM Module  
+- SIM800L GSM Module
 - Voltage Divider (R1=30kΩ, R2=7.5kΩ) untuk baca baterai
 - Relay Module (untuk kontrol pompa)
 - Sensors: pH, Water Level, Battery
 
 **Koneksi:**
+
 ```
 ESP32 Pin 26  ─────► SIM800L RX
 ESP32 Pin 27  ─────► SIM800L TX
@@ -78,26 +80,26 @@ int getSignalQuality() {
 float getBatteryVoltage() {
   long totalRaw = 0;
   int samples = 10;
-  
+
   // Ambil multiple samples
   for (int i = 0; i < samples; i++) {
     totalRaw += analogRead(34);  // Battery ADC pin
     delay(10);
   }
-  
+
   float avgRaw = totalRaw / (float)samples;
-  
+
   // Konversi ke voltage (asumsi voltage divider 5x)
   float voltage = (avgRaw / 4095.0) * 3.3 * 5.0;
-  
+
   // Limit range ke 3.2V - 4.2V
   if (voltage < 3.2) voltage = 3.2;
   if (voltage > 4.2) voltage = 4.2;
-  
+
   Serial.print("[BATTERY] Voltage: ");
   Serial.print(voltage);
   Serial.println("V");
-  
+
   return voltage;
 }
 
@@ -108,7 +110,7 @@ float getBatteryVoltage() {
 int getBatteryPercentage(float voltage) {
   if (voltage >= 4.2) return 100;
   if (voltage <= 3.2) return 0;
-  
+
   int percent = (int)((voltage - 3.2) / (4.2 - 3.2) * 100);
   return constrain(percent, 0, 100);
 }
@@ -138,7 +140,7 @@ void sendToVercel(String endpoint, String deviceId) {
   int signalQuality = getSignalQuality();  // 0-31
   bool pumpIsOn = getPumpStatus();          // true/false
   float waterLevel = readWaterLevel();      // cm
-  
+
   // 2. BUILD JSON PAYLOAD
   StaticJsonDocument<512> doc;
   doc["device_id"] = deviceId;
@@ -149,14 +151,14 @@ void sendToVercel(String endpoint, String deviceId) {
   doc["level"] = waterLevel;        // cm
   doc["location"] = currentLocLabel;  // "sawah" atau "kolam"
   doc["timestamp"] = millis() / 1000;  // Unix seconds
-  
+
   String jsonPayload;
   serializeJson(doc, jsonPayload);
-  
+
   // 3. KIRIM KE BRIDGE
   Serial.println("[HTTP] Sending payload:");
   Serial.println(jsonPayload);
-  
+
   http.beginRequest();
   http.post(endpoint);
   http.sendHeader("Content-Type", "application/json");
@@ -164,27 +166,27 @@ void sendToVercel(String endpoint, String deviceId) {
   http.beginBody();
   http.print(jsonPayload);
   http.endRequest();
-  
+
   int statusCode = http.responseStatusCode();
   String response = http.responseBody();
-  
+
   // 4. PARSE RESPONSE JSON
   Serial.print("[HTTP] Response Code: ");
   Serial.println(statusCode);
   Serial.print("[HTTP] Response Body: ");
   Serial.println(response);
-  
+
   if (statusCode == 200) {
     StaticJsonDocument<256> responseDoc;
     DeserializationError error = deserializeJson(responseDoc, response);
-    
+
     if (!error) {
       String command = responseDoc["command"] | "OFF";
       String device = responseDoc["device_id"] | "";
-      
+
       Serial.print("[HTTP] Command from Bridge: ");
       Serial.println(command);
-      
+
       // 5. EKSEKUSI COMMAND
       if (command == "ON") {
         digitalWrite(PIN_RELAY1, HIGH);
@@ -193,7 +195,7 @@ void sendToVercel(String endpoint, String deviceId) {
         digitalWrite(PIN_RELAY1, LOW);
         Serial.println("[RELAY] Relay mati (from command)");
       }
-      
+
       lastSendTime = millis();  // Update last send time
     } else {
       Serial.println("[ERROR] JSON parse gagal");
@@ -209,14 +211,14 @@ Panggil sendToVercel setiap 20-30 detik:
 ```cpp
 void loop() {
   // ... existing code ...
-  
+
   unsigned long currentMillis = millis();
-  
+
   // Polling interval: 20 detik untuk stabilitas GSM
   if (currentMillis - lastSendTime > 20000 && modem.isGprsConnected()) {
     // PENTING: Pastikan relay status sudah ter-update sebelum kirim
     // Jangan baca relay HANYA dari database, baca dari GPIO saat ini
-    
+
     sendToVercel("/api/input-enhanced.php", "ESP32-KKN-01");
   }
 }
@@ -238,7 +240,8 @@ File: `examples/input-enhanced.php` (sudah dibuat)
 6. CHECK command expiry (> 2 jam = expired → OFF)
 7. Balas JSON response dengan command
 
-**Penting:** 
+**Penting:**
+
 - Command berbasis **STATE** bukan **TRIGGER**
 - Jika database bilang ON, ya ON terus sampai ada command OFF
 - Jika command lama (>2 jam), default ke OFF untuk safety
@@ -272,7 +275,7 @@ Di `app/page.tsx` atau `app/admin/page.tsx`:
 // Update existing state-based control
 const handlePumpToggle = async () => {
   const newCommand = isPumpOn ? "OFF" : "ON";
-  
+
   // 1. UPDATE database dengan command baru
   const res = await fetch("/api/device-control", {
     method: "PUT",
@@ -295,7 +298,7 @@ const handlePumpToggle = async () => {
 const fetchPumpStatus = async () => {
   const res = await fetch(`/api/device-control?mode=${mode}`);
   const data = await res.json();
-  
+
   if (data.success) {
     setPumpOn(data.command === "ON");
     // ESP32 akan baca command ini saat polling
@@ -314,6 +317,7 @@ useEffect(() => {
 ## 4. Database Schema
 
 ### 4.1 MonitoringLog
+
 ```sql
 - id (cuid)
 - ph_value (float)
@@ -326,6 +330,7 @@ useEffect(() => {
 ```
 
 ### 4.2 DeviceControl (NEW!)
+
 ```sql
 - id (cuid)
 - command (string)  -- "ON", "OFF", "STANDBY"
@@ -340,6 +345,7 @@ INDEX: updatedAt
 ```
 
 ### 4.3 PumpStatus
+
 ```sql
 - mode (string @unique)     -- "sawah" atau "kolam"
 - isOn (boolean)            -- current state
@@ -390,14 +396,14 @@ INDEX: updatedAt
 ```
 1. User klik "ON" pukul 10:00
    Database: command="ON", updated_at=2025-02-01 10:00:00
-   
+
 2. ESP32 tidak polling selama 2.5 jam (network down atau power issue)
-   
+
 3. ESP32 reconnect dan polling pukul 12:30
    PHP check: age_seconds = (12:30 - 10:00) = 9000 detik > 7200 detik
    → Command expired!
    → PHP balas: { command: "OFF" }  // Safety: default OFF
-   
+
 4. ESP32 terima OFF dan nyalakan relay OFF
    (Pompa tidak akan tetap hidup karena command expired)
 ```
@@ -415,7 +421,7 @@ device_controls table:
 └─────────────────────────────────────┘
 
 Query priority:
-1. SELECT command FROM device_controls 
+1. SELECT command FROM device_controls
    WHERE deviceId='ESP32-KKN-01' AND mode='sawah'  ← highest priority
 2. If not found, SELECT WHERE deviceId=NULL AND mode='sawah'  ← global
 3. If not found, default OFF  ← safety
@@ -482,8 +488,10 @@ curl -X POST http://localhost/bridge/input-enhanced.php \
 ## 7. Known Issues & Solutions
 
 ### Issue: Bridge returns 404
+
 **Cause:** URL tidak sesuai atau server tidak running
-**Solution:** 
+**Solution:**
+
 ```
 - Gunakan IP lokal untuk testing
 - Pastikan input-enhanced.php di path yang benar
@@ -491,8 +499,10 @@ curl -X POST http://localhost/bridge/input-enhanced.php \
 ```
 
 ### Issue: ESP32 tidak dapat parsing JSON response
+
 **Cause:** Response format tidak sesuai dengan ArduinoJson library
 **Solution:**
+
 ```cpp
 // Pastikan response minimal:
 { "success": true, "command": "OFF" }
@@ -501,8 +511,10 @@ curl -X POST http://localhost/bridge/input-enhanced.php \
 ```
 
 ### Issue: Pump status tidak update di dashboard
+
 **Cause:** `pump_status` dalam JSON tidak dikirim atau FALSE positif
 **Solution:**
+
 ```cpp
 // Selalu baca GPIO LIVE, jangan dari cache
 bool pumpIsOn = digitalRead(PIN_RELAY1) == HIGH;  // Live read
@@ -522,6 +534,7 @@ doc["pump_status"] = pumpIsOn;
 ✅ **Safety** → Command expiry (2 jam) → Default OFF
 
 **Next Steps:**
+
 1. Update ESP32 code dengan functions dari Section 1.2
 2. Test PHP bridge dengan curl
 3. Verify database sync (5-10 detik latency acceptable)

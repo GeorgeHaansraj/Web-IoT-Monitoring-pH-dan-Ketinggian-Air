@@ -102,7 +102,7 @@ String response = client.responseBody();
 StaticJsonDocument<256> responseDoc;
 if (deserializeJson(responseDoc, response) == DeserializationError::Ok) {
   String command = responseDoc["command"] | "OFF";
-  
+
   if (command == "ON") {
     digitalWrite(PIN_RELAY1, HIGH);
     Serial.println("[RELAY] ON");
@@ -126,8 +126,8 @@ const unsigned long SEND_INTERVAL = 20000; // 20 detik
 
 void loop() {
   unsigned long currentMillis = millis();
-  
-  if (currentMillis - lastSendTime > SEND_INTERVAL && 
+
+  if (currentMillis - lastSendTime > SEND_INTERVAL &&
       modem.isGprsConnected()) {
     sendToVercel("/api/input-enhanced.php", "ESP32-KKN-01");
     lastSendTime = currentMillis;
@@ -142,11 +142,13 @@ void loop() {
 ### 1️⃣ Migration Status
 
 ✅ Already Applied:
+
 ```
 20260201191430_add_device_controls_model
 ```
 
 Check with:
+
 ```bash
 npx prisma migrate status
 ```
@@ -227,12 +229,12 @@ H. Dashboard UI: Click "OFF"
 
 ### Expected Values
 
-| Metric | Min | Max | Notes |
-|--------|-----|-----|-------|
-| Signal (CSQ) | 0 | 31 | 28+ = excellent |
-| Battery % | 0 | 100 | 3.2V-4.2V Li-ion |
-| pH | 0 | 14 | Calibrated ±0.5 |
-| Water Level | 0 | 200 | cm (dengan sonar) |
+| Metric       | Min | Max | Notes             |
+| ------------ | --- | --- | ----------------- |
+| Signal (CSQ) | 0   | 31  | 28+ = excellent   |
+| Battery %    | 0   | 100 | 3.2V-4.2V Li-ion  |
+| pH           | 0   | 14  | Calibrated ±0.5   |
+| Water Level  | 0   | 200 | cm (dengan sonar) |
 | Poll Latency | 10s | 40s | Network dependent |
 
 ### Key Logs to Monitor
@@ -249,14 +251,14 @@ H. Dashboard UI: Click "OFF"
 
 ## ⚠️ Common Issues & Fixes
 
-| Issue | Cause | Solution |
-|-------|-------|----------|
-| `Parsing ecmascript failed` | Syntax error dalam JSON | Validate JSON dengan JSONLint |
-| `Bridge returned 404` | URL salah atau server down | Check IP dan routing |
-| `Pump tidak nyala padahal command ON` | GPIO error atau relay rusak | Test relay dengan digitalWrite langsung |
-| `Battery % selalu 0%` | Voltage divider tidak terpasang | Gunakan multimeter check voltage di pin 34 |
-| `Signal CSQ: 99` | Belum dapat sinyal atau SIM card error | Tunggu 30 detik, cek SIM card |
-| `Pump status mismatch (DB vs GPIO)` | Relay state tidak sync | Baca GPIO saat kirim, jangan dari cache |
+| Issue                                 | Cause                                  | Solution                                   |
+| ------------------------------------- | -------------------------------------- | ------------------------------------------ |
+| `Parsing ecmascript failed`           | Syntax error dalam JSON                | Validate JSON dengan JSONLint              |
+| `Bridge returned 404`                 | URL salah atau server down             | Check IP dan routing                       |
+| `Pump tidak nyala padahal command ON` | GPIO error atau relay rusak            | Test relay dengan digitalWrite langsung    |
+| `Battery % selalu 0%`                 | Voltage divider tidak terpasang        | Gunakan multimeter check voltage di pin 34 |
+| `Signal CSQ: 99`                      | Belum dapat sinyal atau SIM card error | Tunggu 30 detik, cek SIM card              |
+| `Pump status mismatch (DB vs GPIO)`   | Relay state tidak sync                 | Baca GPIO saat kirim, jangan dari cache    |
 
 ---
 
@@ -313,17 +315,17 @@ Red flags:
 
 ```sql
 -- Check latest command
-SELECT * FROM device_controls 
-WHERE mode='sawah' 
+SELECT * FROM device_controls
+WHERE mode='sawah'
 ORDER BY updated_at DESC LIMIT 1;
 
 -- Check monitoring data
-SELECT * FROM monitoring_logs 
-WHERE device_id='ESP32-KKN-01' 
+SELECT * FROM monitoring_logs
+WHERE device_id='ESP32-KKN-01'
 ORDER BY created_at DESC LIMIT 10;
 
 -- Check pump status feedback
-SELECT * FROM pump_status 
+SELECT * FROM pump_status
 WHERE mode='sawah';
 ```
 
