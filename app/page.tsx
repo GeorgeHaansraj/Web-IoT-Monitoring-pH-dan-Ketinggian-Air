@@ -35,6 +35,7 @@ export default function Dashboard() {
   const [rssi, setRssi] = useState(31); // CSQ value 0-31, 99 for no signal
   const [currentPH, setCurrentPH] = useState(7.0);
   const [isPumpOn, setIsPumpOn] = useState(false);
+  const [isManualMode, setIsManualMode] = useState(false);
   const [waterLevel, setWaterLevel] = useState(0);
   const [showDurationModal, setShowDurationModal] = useState(false);
   const [isTogglingPump, setIsTogglingPump] = useState(false);
@@ -138,6 +139,7 @@ export default function Dashboard() {
           const data = await response.json();
           console.log("[PUMP] Status from DB:", data.isOn);
           setIsPumpOn(data.isOn);
+          setIsManualMode(data.isManualMode ?? false);
         }
       } catch (error) {
         console.error("[PUMP] Error fetching pump status:", error);
@@ -161,6 +163,7 @@ export default function Dashboard() {
           if (data.isOn !== isPumpOn) {
             console.log("[PUMP] Status changed in DB, updating UI:", data.isOn);
             setIsPumpOn(data.isOn);
+            setIsManualMode(data.isManualMode ?? false);
           }
         } else if (response.status === 401) {
           console.warn("[PUMP] Session invalid");
@@ -324,6 +327,48 @@ export default function Dashboard() {
     }
   };
 
+  const handleLogout = async () => {
+    try {
+      // If pump is ON in manual mode, auto-OFF before logout
+      if (isPumpOn && isManualMode) {
+        console.log("[LOGOUT] Auto-turning off manual mode pump...");
+        try {
+          const response = await fetch("/api/pump-relay", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              mode: "sawah",
+              isOn: false,
+              changedBy: "auto-logout",
+            }),
+          });
+
+          if (response.ok) {
+            console.log("[LOGOUT] Pump turned off successfully");
+            setIsPumpOn(false);
+            setIsManualMode(false);
+          } else {
+            console.warn("[LOGOUT] Failed to turn off pump, but continuing");
+          }
+
+          // Small delay to ensure request completes
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        } catch (error) {
+          console.error("[LOGOUT] Error turning off pump:", error);
+          // Continue logout even if pump control fails
+        }
+      }
+
+      // Sign out
+      await signOut({ redirect: false });
+      toast.success("Logout berhasil");
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Gagal logout");
+    }
+  };
+
   const handlePumpToggle = async (checked: boolean) => {
     // If turning pump ON, show duration modal first
     if (checked) {
@@ -378,6 +423,11 @@ export default function Dashboard() {
       }
 
       const data = await response.json();
+
+      // Store manual mode state
+      if (isOn) {
+        setIsManualMode(isManualMode);
+      }
 
       if (isOn) {
         const modeText = isManualMode
@@ -435,7 +485,7 @@ export default function Dashboard() {
           </Link>
 
           <button
-            onClick={() => signOut()}
+            onClick={handleLogout}
             className="p-2 text-gray-400 hover:text-red-500 transition-colors"
             title="Keluar"
           >
@@ -581,7 +631,6 @@ export default function Dashboard() {
             </Switch>
           </div>
         </div>
-      </div>
       </div>
 
       {/* Pump Duration Modal */}

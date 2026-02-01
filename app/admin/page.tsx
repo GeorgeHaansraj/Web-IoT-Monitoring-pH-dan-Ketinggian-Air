@@ -61,6 +61,7 @@ export default function AdminPage() {
   const [rssi, setRssi] = useState(31);
   const [currentPH, setCurrentPH] = useState(7.0);
   const [isPumpOn, setIsPumpOn] = useState(false);
+  const [isManualMode, setIsManualMode] = useState(false);
   const [waterLevel, setWaterLevel] = useState(0);
   const [isTogglingPump, setIsTogglingPump] = useState(false); // Loading state for pump toggle
   const [showDurationModal, setShowDurationModal] = useState(false); // Modal for pump duration selection
@@ -133,6 +134,7 @@ export default function AdminPage() {
           const data = await response.json();
           console.log("[PUMP] Status from DB:", data.isOn);
           setIsPumpOn(data.isOn);
+          setIsManualMode(data.isManualMode ?? false);
         }
       } catch (error) {
         console.error("[PUMP] Error fetching pump status:", error);
@@ -156,6 +158,7 @@ export default function AdminPage() {
           if (data.isOn !== isPumpOn) {
             console.log("[PUMP] Status changed in DB, updating UI:", data.isOn);
             setIsPumpOn(data.isOn);
+            setIsManualMode(data.isManualMode ?? false);
           }
         } else if (response.status === 401) {
           console.warn("[PUMP] Session invalid, auto-turning off pump");
@@ -306,9 +309,37 @@ export default function AdminPage() {
 
   const handleLogout = async () => {
     try {
-      // Sign out without auto-turning off pump
-      // For manual mode: user will auto-OFF when leaving dashboard (beforeunload)
-      // For timed mode: pump will auto-OFF after duration expires
+      // If pump is ON in manual mode, auto-OFF before logout
+      if (isPumpOn && isManualMode) {
+        console.log("[LOGOUT] Auto-turning off manual mode pump...");
+        try {
+          const response = await fetch("/api/pump-relay", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              mode: "sawah",
+              isOn: false,
+              changedBy: "auto-logout",
+            }),
+          });
+
+          if (response.ok) {
+            console.log("[LOGOUT] Pump turned off successfully");
+            setIsPumpOn(false);
+            setIsManualMode(false);
+          } else {
+            console.warn("[LOGOUT] Failed to turn off pump, but continuing");
+          }
+
+          // Small delay to ensure request completes
+          await new Promise((resolve) => setTimeout(resolve, 100));
+        } catch (error) {
+          console.error("[LOGOUT] Error turning off pump:", error);
+          // Continue logout even if pump control fails
+        }
+      }
+
+      // Sign out
       await signOut({ redirect: false });
       toast.success("Logout berhasil");
       router.push("/login");
@@ -387,7 +418,15 @@ export default function AdminPage() {
       if (response.ok) {
         const data = await response.json();
         console.log("[PUMP] Toggle response:", data);
-        setIsPumpOn(data.data?.isOn ?? !isPumpOn);
+        const newIsOn = data.data?.isOn ?? !isPumpOn;
+        setIsPumpOn(newIsOn);
+
+        // Store manual mode state if turning ON
+        if (newIsOn) {
+          setIsManualMode(isManualMode);
+        } else {
+          setIsManualMode(false);
+        }
 
         // Show appropriate message
         if (data.data?.reason === "timeout") {

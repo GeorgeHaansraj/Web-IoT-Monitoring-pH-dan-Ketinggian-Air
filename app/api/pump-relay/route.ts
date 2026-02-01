@@ -60,12 +60,20 @@ export async function GET(req: NextRequest) {
     }
 
     // Auto-OFF logic untuk timed mode
-    if (pumpStatus.isOn && !pumpStatus.isManualMode && pumpStatus.pumpStartTime && pumpStatus.pumpDuration) {
-      const elapsed = (Date.now() - pumpStatus.pumpStartTime.getTime()) / (1000 * 60 * 60); // dalam jam
+    if (
+      pumpStatus.isOn &&
+      !pumpStatus.isManualMode &&
+      pumpStatus.pumpStartTime &&
+      pumpStatus.pumpDuration
+    ) {
+      const elapsed =
+        (Date.now() - pumpStatus.pumpStartTime.getTime()) / (1000 * 60 * 60); // dalam jam
       if (elapsed > pumpStatus.pumpDuration) {
         // Auto-OFF: waktu habis
-        console.log(`[PUMP] Auto-OFF duration expired for ${mode} (elapsed: ${elapsed.toFixed(2)}h, duration: ${pumpStatus.pumpDuration}h)`);
-        
+        console.log(
+          `[PUMP] Auto-OFF duration expired for ${mode} (elapsed: ${elapsed.toFixed(2)}h, duration: ${pumpStatus.pumpDuration}h)`,
+        );
+
         pumpStatus = await prisma.pumpStatus.update({
           where: { mode },
           data: {
@@ -133,7 +141,13 @@ export async function POST(req: NextRequest) {
     const userName = (session.user as { name?: string }).name || "Unknown";
 
     const body = await req.json();
-    const { mode = "sawah", isOn, changedBy = "dashboard", duration = null, isManualMode = false } = body;
+    const {
+      mode = "sawah",
+      isOn,
+      changedBy = "dashboard",
+      duration = null,
+      isManualMode = false,
+    } = body;
 
     if (isOn === undefined) {
       return NextResponse.json(

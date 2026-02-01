@@ -32,9 +32,7 @@ export function PumpDurationModal({
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Pilih Durasi Pompa</DialogTitle>
-          <DialogDescription>
-            Berapa lama pompa akan menyala?
-          </DialogDescription>
+          <DialogDescription>Berapa lama pompa akan menyala?</DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-3 py-4">
