@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import WaterLevelMeter from "@/components/visualizations/WaterLevelMeter";
 import { toast } from "sonner";
+import { PumpDurationModal } from "@/components/PumpDurationModal";
 
 export default function Dashboard() {
   const router = useRouter();
@@ -35,6 +36,8 @@ export default function Dashboard() {
   const [currentPH, setCurrentPH] = useState(7.0);
   const [isPumpOn, setIsPumpOn] = useState(false);
   const [waterLevel, setWaterLevel] = useState(0);
+  const [showDurationModal, setShowDurationModal] = useState(false);
+  const [isTogglingPump, setIsTogglingPump] = useState(false);
 
   // Fetch device status from database on mount
   useEffect(() => {
@@ -186,6 +189,40 @@ export default function Dashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  // Handle page unload for manual mode pump auto-OFF
+  useEffect(() => {
+    if (!isPumpOn) return; // Only add listener if pump is ON
+
+    const handleBeforeUnload = async (e: BeforeUnloadEvent) => {
+      // Fetch pump status to check if it's in manual mode
+      try {
+        const statusResponse = await fetch("/api/pump-relay?mode=sawah");
+        if (statusResponse.ok) {
+          const pumpData = await statusResponse.json();
+          // Only auto-OFF if in manual mode
+          if (pumpData.isManualMode) {
+            // Use keepalive to ensure the request completes even during page unload
+            await fetch("/api/pump-relay", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                mode: "sawah",
+                isOn: false,
+                changedBy: "auto-page-leave",
+              }),
+              keepalive: true,
+            });
+          }
+        }
+      } catch (error) {
+        console.error("[PUMP] Error during beforeunload:", error);
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [isPumpOn]);
+
   if (status === "loading") {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -288,7 +325,28 @@ export default function Dashboard() {
   };
 
   const handlePumpToggle = async (checked: boolean) => {
-    setIsPumpOn(checked);
+    // If turning pump ON, show duration modal first
+    if (checked) {
+      setShowDurationModal(true);
+      return;
+    }
+
+    // If turning pump OFF, do it directly
+    await handlePumpToggleWithDuration(null, false);
+  };
+
+  const handlePumpToggleWithDuration = async (
+    duration: number | null,
+    isManualMode: boolean,
+  ) => {
+    if (isTogglingPump) {
+      toast.info("Sedang memproses...");
+      return;
+    }
+
+    const isOn = !isPumpOn;
+    setIsTogglingPump(true);
+    setIsPumpOn(isOn);
 
     try {
       const response = await fetch("/api/pump-relay", {
@@ -298,8 +356,10 @@ export default function Dashboard() {
         },
         body: JSON.stringify({
           mode: "sawah",
-          isOn: checked,
+          isOn: isOn,
           changedBy: "dashboard",
+          duration: duration,
+          isManualMode: isManualMode,
         }),
       });
 
@@ -319,8 +379,13 @@ export default function Dashboard() {
 
       const data = await response.json();
 
-      if (checked) {
-        toast("Pompa air dihidupkan", {
+      if (isOn) {
+        const modeText = isManualMode
+          ? "(Manual)"
+          : duration
+            ? `(${duration} jam)`
+            : "";
+        toast("Pompa air dihidupkan " + modeText, {
           style: {
             background: "#ffffff",
             color: "#2563eb",
@@ -337,13 +402,15 @@ export default function Dashboard() {
         });
       }
 
-      console.log(`HTTP: Pump ${checked ? "ON" : "OFF"} - Response:`, data);
+      console.log(`HTTP: Pump ${isOn ? "ON" : "OFF"} - Response:`, data);
     } catch (error) {
       console.error("Error sending pump status:", error);
-      setIsPumpOn(!checked);
+      setIsPumpOn(!isOn);
       toast.error(
         error instanceof Error ? error.message : "Gagal mengontrol pompa",
       );
+    } finally {
+      setIsTogglingPump(false);
     }
   };
 
@@ -515,6 +582,15 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+      </div>
+
+      {/* Pump Duration Modal */}
+      <PumpDurationModal
+        isOpen={showDurationModal}
+        onClose={() => setShowDurationModal(false)}
+        onSelect={handlePumpToggleWithDuration}
+        isLoading={isTogglingPump}
+      />
     </div>
   );
 }
