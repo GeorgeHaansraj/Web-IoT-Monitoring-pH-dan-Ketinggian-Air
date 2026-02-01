@@ -284,7 +284,9 @@ export default function AdminPage() {
             }),
           });
           if (!response.ok) {
-            console.warn("[LOGOUT] Failed to turn off pump, but continuing logout");
+            console.warn(
+              "[LOGOUT] Failed to turn off pump, but continuing logout",
+            );
           } else {
             console.log("[LOGOUT] Pump turned off successfully");
             setIsPumpOn(false);
@@ -359,17 +361,19 @@ export default function AdminPage() {
         const data = await response.json();
         console.log("[PUMP] Toggle response:", data);
         setIsPumpOn(data.data?.isOn ?? !isPumpOn);
-        
+
         // Show appropriate message
         if (data.data?.reason === "timeout") {
           toast.warning(data.message || "Pompa dimatikan (timeout)");
         } else {
-          toast.success(data.message || `Pompa ${!isPumpOn ? "dihidupkan" : "dimatikan"}`);
+          toast.success(
+            data.message || `Pompa ${!isPumpOn ? "dihidupkan" : "dimatikan"}`,
+          );
         }
       } else {
         const errorData = await response.json();
         console.error("[PUMP] Error response:", errorData);
-        
+
         if (response.status === 401) {
           toast.error("Session tidak valid. Silakan login kembali.");
         } else if (response.status === 403) {

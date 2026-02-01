@@ -77,25 +77,22 @@ export async function POST(req: NextRequest) {
   try {
     // Get user session untuk tracking siapa yang mengontrol
     const session = await auth();
-    
+
     // SECURITY: Validate session exists and is active
     if (!session || !session.user) {
       return NextResponse.json(
-        { error: "Session tidak valid atau sudah expired. Silakan login kembali." },
+        {
+          error:
+            "Session tidak valid atau sudah expired. Silakan login kembali.",
+        },
         { status: 401 },
       );
     }
 
-    // SECURITY: Validate user role has permission
-    const userRole = (session.user as { role?: string }).role;
-    if (userRole !== "admin") {
-      return NextResponse.json(
-        { error: "Hanya admin yang dapat mengontrol pompa" },
-        { status: 403 },
-      );
-    }
-
+    // SECURITY: Any authenticated user can control pump, but we track who
+    // Admin controls are for viewing history and managing other users
     const userId = (session.user as { id?: string }).id;
+    const userName = (session.user as { name?: string }).name || "Unknown";
 
     const body = await req.json();
     const { mode = "sawah", isOn, changedBy = "dashboard" } = body;
@@ -127,11 +124,16 @@ export async function POST(req: NextRequest) {
 
     // SECURITY: Check pump timeout (24 hours) - auto-OFF if exceeded
     const PUMP_TIMEOUT_HOURS = 24;
-    const lastUpdate = currentStatus?.updatedAt ? new Date(currentStatus.updatedAt) : null;
+    const lastUpdate = currentStatus?.updatedAt
+      ? new Date(currentStatus.updatedAt)
+      : null;
     if (lastUpdate && isOn && currentStatus?.isOn) {
-      const hoursSinceUpdate = (Date.now() - lastUpdate.getTime()) / (1000 * 60 * 60);
+      const hoursSinceUpdate =
+        (Date.now() - lastUpdate.getTime()) / (1000 * 60 * 60);
       if (hoursSinceUpdate > PUMP_TIMEOUT_HOURS) {
-        console.warn(`[PUMP] Pump timeout exceeded (${hoursSinceUpdate.toFixed(1)}h), auto-turning OFF`);
+        console.warn(
+          `[PUMP] Pump timeout exceeded (${hoursSinceUpdate.toFixed(1)}h), auto-turning OFF`,
+        );
         // Auto turn off pump
         const timeoutPumpStatus = await prisma.pumpStatus.update({
           where: { mode },

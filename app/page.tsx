@@ -255,7 +255,17 @@ export default function Dashboard() {
       });
 
       if (!response.ok) {
-        throw new Error("Gagal mengirim status pompa ke server");
+        const errorData = await response.json().catch(() => ({}));
+        
+        if (response.status === 401) {
+          toast.error("Session tidak valid. Silakan login kembali.");
+          router.push("/login");
+          return;
+        }
+        
+        throw new Error(
+          errorData.error || "Gagal mengirim status pompa ke server"
+        );
       }
 
       const data = await response.json();
@@ -282,7 +292,9 @@ export default function Dashboard() {
     } catch (error) {
       console.error("Error sending pump status:", error);
       setIsPumpOn(!checked);
-      toast("Gagal mengontrol pompa", {
+      toast.error(
+        error instanceof Error ? error.message : "Gagal mengontrol pompa"
+      );
         style: {
           background: "#ffffff",
           color: "#dc2626",
