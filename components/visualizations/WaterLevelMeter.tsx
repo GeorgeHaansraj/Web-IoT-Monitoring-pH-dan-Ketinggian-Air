@@ -37,7 +37,7 @@ export default function WaterLevelMeter({
         {/* Number Display - Angka Dinamis */}
         <div className="flex-1 flex flex-col items-center justify-center gap-2">
           {/* Large Number */}
-          <div className="text-6xl font-bold text-blue-500 tracking-tight">
+          <div className="text-6xl font-semibold text-blue-500 tracking-tight">
             {level.toFixed(1)}
           </div>
           <p className="text-sm text-gray-500 font-medium">cm</p>

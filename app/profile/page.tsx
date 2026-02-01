@@ -3,10 +3,20 @@
 import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, User, LogOut, Lock, Check, X, Power } from "lucide-react";
+import {
+  ArrowLeft,
+  User,
+  LogOut,
+  Lock,
+  Check,
+  X,
+  Power,
+  FlaskConical,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import PasswordInput from "@/components/PasswordInput";
+import PHHistoryGraph from "@/components/PHHistoryGraph";
 import {
   Dialog,
   DialogContent,
@@ -22,6 +32,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
   const [showPumpHistory, setShowPumpHistory] = useState(false);
+  const [showPhHistory, setShowPhHistory] = useState(false);
   const [pumpHistory, setPumpHistory] = useState<any[]>([]);
   const [pumpHistoryLoading, setPumpHistoryLoading] = useState(false);
   const [passwords, setPasswords] = useState({
@@ -197,6 +208,27 @@ export default function ProfilePage() {
           <ArrowLeft className="w-4 h-4 text-gray-400 rotate-180" />
         </button>
 
+        {/* Riwayat pH */}
+        <button
+          onClick={() => setShowPhHistory(true)}
+          className="w-full bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition"
+        >
+          <div className="flex items-center gap-4">
+            <div className="bg-purple-50 p-2 rounded-lg">
+              <FlaskConical className="w-5 h-5 text-purple-600" />
+            </div>
+            <div className="text-left">
+              <p className="text-xs text-gray-500 uppercase font-bold">
+                Riwayat pH
+              </p>
+              <p className="text-sm font-semibold text-gray-700">
+                Lihat Grafik Perubahan pH
+              </p>
+            </div>
+          </div>
+          <ArrowLeft className="w-4 h-4 text-gray-400 rotate-180" />
+        </button>
+
         {/* Ubah Sandi */}
         <button
           onClick={() => setOpenPasswordDialog(true)}
@@ -280,6 +312,26 @@ export default function ProfilePage() {
               disabled={isChangingPassword}
             >
               {isChangingPassword ? "Mengubah..." : "Ubah Sandi"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Riwayat pH */}
+      <Dialog open={showPhHistory} onOpenChange={setShowPhHistory}>
+        <DialogContent className="max-w-2xl max-h-96 overflow-hidden flex flex-col">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <FlaskConical className="w-5 h-5 text-purple-600" />
+              Riwayat pH
+            </DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-y-auto py-4">
+            <PHHistoryGraph />
+          </div>
+          <DialogFooter>
+            <Button onClick={() => setShowPhHistory(false)} className="w-full">
+              Tutup
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -19,7 +19,6 @@ import {
 import SawahViz from "@/components/visualizations/SawahViz";
 import KolamViz from "@/components/visualizations/KolamViz";
 import WaterLevelMeter from "@/components/visualizations/WaterLevelMeter";
-import PHHistoryGraph from "@/components/PHHistoryGraph";
 import { toast } from "sonner";
 import mqtt from "mqtt";
 
@@ -392,6 +391,50 @@ export default function Dashboard() {
   const getCurrentPH = () => sawahPH;
   const getPumpStatus = () => sawahPumpOn;
 
+  // Function to determine pH color based on value
+  const getPhColor = (ph: number): string => {
+    if (ph <= 3) {
+      // Asam Kuat (pH 1-3): Merah tua/cerah
+      return "#DC2626";
+    } else if (ph <= 6) {
+      // Asam Lemah (pH 4-6): Orange hingga Kuning
+      const ratio = (ph - 3) / 3; // 0 to 1
+      const red = Math.round(255);
+      const green = Math.round(127 + ratio * 80); // 127 (orange) to 207 (yellow)
+      const blue = Math.round(0);
+      return `rgb(${red}, ${green}, ${blue})`;
+    } else if (ph < 7) {
+      // Transitional (pH 6-7): Kuning menuju Hijau
+      const ratio = (ph - 6) / 1; // 0 to 1
+      const red = Math.round(200 - ratio * 100); // 200 to 100
+      const green = Math.round(200);
+      const blue = Math.round(0 + ratio * 50); // 0 to 50
+      return `rgb(${red}, ${green}, ${blue})`;
+    } else if (ph === 7) {
+      // Netral (pH 7): Hijau
+      return "#16A34A";
+    } else if (ph < 8) {
+      // Transitional (pH 7-8): Hijau menuju Biru
+      const ratio = (ph - 7) / 1; // 0 to 1
+      const red = Math.round(100 - ratio * 100); // 100 to 0
+      const green = Math.round(200 - ratio * 50); // 200 to 150
+      const blue = Math.round(50 + ratio * 150); // 50 to 200
+      return `rgb(${red}, ${green}, ${blue})`;
+    } else if (ph <= 9) {
+      // Basa Lemah (pH 8-9): Biru muda hingga biru langit
+      const ratio = (ph - 8) / 1; // 0 to 1
+      return `rgb(${Math.round(100 - ratio * 50)}, ${Math.round(150 - ratio * 30)}, ${Math.round(200 + ratio * 30)})`;
+    } else if (ph <= 14) {
+      // Basa Kuat (pH 10-14): Biru tua hingga ungu
+      const ratio = (ph - 9) / 5; // 0 to 1
+      const red = Math.round(50 + ratio * 80); // 50 to 130
+      const green = Math.round(120 - ratio * 60); // 120 to 60
+      const blue = Math.round(230 - ratio * 50); // 230 to 180
+      return `rgb(${red}, ${green}, ${blue})`;
+    }
+    return "#16A34A"; // Default hijau
+  };
+
   return (
     <div className="max-w-md mx-auto p-4 space-y-6 bg-[#fafafa] min-h-screen font-sans">
       {/* Header dengan Link Profil & Tombol Logout */}
@@ -552,25 +595,14 @@ export default function Dashboard() {
           <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-6 border border-gray-100">
             <div className="flex items-center gap-2 mb-4 text-purple-600">
               <FlaskConical className="w-5 h-5" />
-              <h2 className="text-lg text-black">pH Real-time</h2>
+              <h2 className="text-lg text-black">pH</h2>
             </div>
-            <div className="text-center space-y-1">
-              <div className="text-7xl tracking-tighter">
+            <div className="text-center">
+              <div
+                className="text-7xl tracking-tighter font-semibold transition-colors duration-500"
+                style={{ color: getPhColor(getCurrentPH()) }}
+              >
                 {getCurrentPH().toFixed(2)}
-              </div>
-              <p className="text-sm text-gray-500">pH Level</p>
-            </div>
-            <div className="mt-8 space-y-2">
-              <div className="w-full bg-gray-200 h-2.5 rounded-full overflow-hidden flex">
-                <div
-                  className="h-full bg-green-500 transition-all duration-1000"
-                  style={{ width: `${(getCurrentPH() / 14) * 100}%` }}
-                />
-              </div>
-              <div className="flex justify-between text-[10px] text-gray-500 font-medium px-1">
-                <span>Asam (4)</span>
-                <span>Netral (7)</span>
-                <span>Basa (14)</span>
               </div>
             </div>
           </div>
@@ -579,17 +611,12 @@ export default function Dashboard() {
           <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-6 border border-gray-100">
             <div className="flex items-center gap-2 mb-6 text-blue-600">
               <Waves className="w-5 h-5" />
-              <h2 className="text-lg text-black">Level Air</h2>
+              <h2 className="text-lg text-black">Selisih Permukaan Air</h2>
             </div>
             <div className="mb-4 flex justify-center">
               {renderWaterVisualization()}
             </div>
           </div>
-        </div>
-
-        {/* Grafik Riwayat pH */}
-        <div className="bg-white rounded-xl shadow-[0_2px_8px_rgba(0,0,0,0.04)] p-6 border border-gray-100">
-          <PHHistoryGraph />
         </div>
 
         {/* Kontrol Pompa */}
