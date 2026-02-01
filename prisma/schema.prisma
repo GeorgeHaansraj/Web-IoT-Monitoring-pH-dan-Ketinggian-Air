@@ -85,6 +85,23 @@ model PumpStatus {
   @@map("pump_status")
 }
 
+model DeviceControl {
+  id        String   @id @default(cuid())
+  deviceId  String?  // "ESP32-KKN-01" atau null untuk global
+  mode      String?  // "sawah", "kolam", atau null untuk global
+  command   String   @default("OFF")  // "ON", "OFF", "STANDBY"
+  updatedAt DateTime @updatedAt
+  createdAt DateTime @default(now())
+  
+  // Metadata untuk tracking
+  actionBy  String?  // User ID atau "system" atau "esp32"
+  reason    String?  // Alasan command dikirim (opsional)
+  
+  @@map("device_controls")
+  @@unique([deviceId, mode]) // Satu command per device+mode combo
+  @@index([updatedAt])
+}
+
 model PumpHistory {
   id           String   @id @default(cuid())
   mode         String   // "sawah" or "kolam"
