@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
           not: null,
         },
       },
-      orderBy: { timestamp: "desc" },
+      orderBy: { created_at: "desc" },
     });
 
     if (!latestReading) {
@@ -30,14 +30,14 @@ export async function GET(request: NextRequest) {
     }
 
     console.log(
-      `[PH-LATEST] Latest pH: ${latestReading.ph_value} (${latestReading.timestamp})`,
+      `[PH-LATEST] Latest pH: ${latestReading.ph_value} (${latestReading.created_at})`,
     );
 
     return NextResponse.json({
       success: true,
       value: latestReading.ph_value,
       temperature: latestReading.temperature,
-      timestamp: latestReading.timestamp,
+      timestamp: latestReading.created_at,
       deviceId: latestReading.deviceId,
     });
   } catch (error) {

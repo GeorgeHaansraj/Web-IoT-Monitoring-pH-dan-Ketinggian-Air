@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
   try {
     // Get latest monitoring log with all data
     const latestLog = await prisma.monitoringLog.findFirst({
-      orderBy: { timestamp: "desc" },
+      orderBy: { created_at: "desc" },
     });
 
     if (!latestLog) {
@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
         level: latestLog.level,
         temperature: latestLog.temperature,
         signal_strength: latestLog.signal_strength,
-        timestamp: latestLog.timestamp,
+        timestamp: latestLog.created_at,
         deviceId: latestLog.deviceId,
       },
     });

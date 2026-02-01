@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
             not: null,
           },
         },
-        orderBy: { timestamp: "desc" },
+        orderBy: { created_at: "desc" },
         take: limit,
       });
       return NextResponse.json(readings);

@@ -52,6 +52,6 @@ export const authOptions = {
       },
     }),
   ],
-} as const;
+};
 
 export const { handlers, auth, signIn, signOut } = NextAuth(authOptions);

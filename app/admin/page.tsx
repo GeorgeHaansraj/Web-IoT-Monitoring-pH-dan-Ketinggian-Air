@@ -735,7 +735,7 @@ export default function AdminPage() {
                   <Droplet className="w-5 h-5" />
                   Tinggi Permukaan Air
                 </h3>
-                <WaterLevelMeter level={waterLevel} />
+                <WaterLevelMeter level={waterLevel} mode="sawah" maxHeight={80} />
               </div>
             </div>
 
