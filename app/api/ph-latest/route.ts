@@ -3,28 +3,25 @@ import { NextRequest, NextResponse } from "next/server";
 
 /**
  * GET /api/ph-latest
- * Get the latest pH reading untuk real-time display
- *
- * Query params:
- * - location: "kolam" atau "sawah" (default: "sawah")
+ * Get the latest pH reading dari monitoring_logs
  */
 export async function GET(request: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
-    const location = searchParams.get("location") || "sawah";
-
-    // Get latest pH reading
-    const latestReading = await prisma.pHReading.findFirst({
-      where: { location },
+    // Get latest pH reading dari monitoring_logs
+    const latestReading = await prisma.monitoringLog.findFirst({
+      where: {
+        ph_value: {
+          not: null,
+        },
+      },
       orderBy: { timestamp: "desc" },
     });
 
     if (!latestReading) {
-      console.log(`[PH-LATEST] No readings found for ${location}`);
+      console.log(`[PH-LATEST] No readings found`);
       return NextResponse.json(
         {
           success: true,
-          location,
           value: null,
           message: "No data available yet",
         },
@@ -33,13 +30,12 @@ export async function GET(request: NextRequest) {
     }
 
     console.log(
-      `[PH-LATEST] Latest pH for ${location}: ${latestReading.value} (${latestReading.timestamp})`,
+      `[PH-LATEST] Latest pH: ${latestReading.ph_value} (${latestReading.timestamp})`,
     );
 
     return NextResponse.json({
       success: true,
-      location,
-      value: latestReading.value,
+      value: latestReading.ph_value,
       temperature: latestReading.temperature,
       timestamp: latestReading.timestamp,
       deviceId: latestReading.deviceId,

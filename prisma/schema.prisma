@@ -89,3 +89,17 @@ model PumpHistory {
   @@map("pump_history")
   @@index([mode, timestamp])
 }
+
+model MonitoringLog {
+  id             String   @id @default(cuid())
+  battery_level  Float?   // Battery percentage (0-100)
+  ph_value       Float?   // pH value (0-14)
+  level          Float?   // Water level in cm
+  temperature    Float?   // Temperature from pH sensor
+  signal_strength Int?    // Signal quality (CSQ)
+  created_at     DateTime @default(now())
+  deviceId       String?  // Device identifier
+  
+  @@map("monitoring_logs")
+  @@index([created_at])
+}

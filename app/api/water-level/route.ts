@@ -4,16 +4,31 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const location = searchParams.get("location");
     const limit = parseInt(searchParams.get("limit") || "100");
 
-    const readings = await prisma.waterLevelReading.findMany({
-      where: location ? { location } : undefined,
-      orderBy: { timestamp: "desc" },
-      take: limit,
-    });
-
-    return NextResponse.json(readings);
+    // Try to fetch water level readings dari monitoring_logs
+    // If table doesn't exist or query fails, return empty array
+    try {
+      const readings = await prisma.monitoringLog.findMany({
+        where: {
+          level: {
+            not: null,
+          },
+        },
+        orderBy: { timestamp: "desc" },
+        take: limit,
+      });
+      return NextResponse.json(readings);
+    } catch (dbError: any) {
+      // If table doesn't exist, return empty array instead of error
+      if (dbError?.code === "P2021" || dbError?.code === "P2022") {
+        console.warn(
+          "[WATER-LEVEL] Database table not found, returning empty array",
+        );
+        return NextResponse.json([]);
+      }
+      throw dbError;
+    }
   } catch (error) {
     console.error("Error fetching water level readings:", error);
     return NextResponse.json(

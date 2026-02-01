@@ -8,14 +8,12 @@ type TimeRange = "hour" | "day" | "month" | "year";
  * Fetch pH history dengan time-based aggregation
  *
  * Query params:
- * - location: "kolam" atau "sawah" (default: "sawah")
  * - range: "hour" | "day" | "month" | "year" (default: "hour")
  * - limit: max records (default: 100)
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const location = searchParams.get("location") || "sawah";
     const range = (searchParams.get("range") || "hour") as TimeRange;
     const limit = parseInt(searchParams.get("limit") || "100");
 
@@ -58,7 +56,6 @@ export async function GET(request: NextRequest) {
     // Fetch raw data dari database
     const readings = await prisma.pHReading.findMany({
       where: {
-        location,
         timestamp: {
           gte: dateFrom,
           lte: now,
@@ -67,9 +64,7 @@ export async function GET(request: NextRequest) {
       orderBy: { timestamp: "asc" },
     });
 
-    console.log(
-      `[PH-HISTORY] Fetched ${readings.length} readings for ${location} (${range})`,
-    );
+    console.log(`[PH-HISTORY] Fetched ${readings.length} readings (${range})`);
 
     // Aggregate data berdasarkan time range
     const aggregated = aggregateByTimeRange(readings, range);

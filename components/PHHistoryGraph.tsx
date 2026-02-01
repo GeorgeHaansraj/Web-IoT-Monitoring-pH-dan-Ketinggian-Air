@@ -38,9 +38,7 @@ export default function PHHistoryGraph() {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(
-        `/api/ph-history?location=sawah&range=${range}&limit=100`,
-      );
+      const response = await fetch(`/api/ph-history?range=${range}&limit=100`);
 
       if (!response.ok) {
         throw new Error("Failed to fetch pH history");

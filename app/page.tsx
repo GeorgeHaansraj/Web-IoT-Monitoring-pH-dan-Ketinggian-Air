@@ -31,6 +31,7 @@ export default function Dashboard() {
   const [credit, setCredit] = useState(50000);
   const [kuota, setKuota] = useState(4.5);
   const [isOnline, setIsOnline] = useState(true);
+  const [rssi, setRssi] = useState(31); // CSQ value 0-31, 99 for no signal
   const [currentPH, setCurrentPH] = useState(7.0);
   const [isPumpOn, setIsPumpOn] = useState(false);
   const [waterLevel, setWaterLevel] = useState(0);
@@ -40,73 +41,95 @@ export default function Dashboard() {
     const fetchDeviceStatus = async () => {
       try {
         const response = await fetch("/api/device-status");
+        if (!response.ok) return;
         const data = await response.json();
 
-        if (data.battery !== undefined) setBattery(data.battery);
+        // Update online status and other device-specific data
+        if (data) {
+          setIsOnline(true);
+        }
       } catch (error) {
         console.error("Error fetching device status:", error);
+        setIsOnline(false);
       }
     };
 
     fetchDeviceStatus();
   }, []);
 
-  // Fetch pH Real-time from database
+  // Fetch all monitoring data (battery, pH, level) from monitoring_log
   useEffect(() => {
-    const fetchPhRealtime = async () => {
+    const fetchMonitoringData = async () => {
       try {
-        const response = await fetch(`/api/ph-latest?location=sawah`);
-        const data = await response.json();
+        const response = await fetch(`/api/monitoring-log`);
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const result = await response.json();
 
-        if (data.success && data.value !== null) {
-          setCurrentPH(data.value);
-          console.log(`[PH-REALTIME] Updated pH: ${data.value}`);
+        if (result.success && result.data) {
+          // Update pH
+          if (
+            result.data.ph_value !== null &&
+            result.data.ph_value !== undefined
+          ) {
+            setCurrentPH(result.data.ph_value);
+            console.log(`[MONITORING] Updated pH: ${result.data.ph_value}`);
+          }
+
+          // Update battery level
+          if (
+            result.data.battery_level !== null &&
+            result.data.battery_level !== undefined
+          ) {
+            setBattery(result.data.battery_level);
+            console.log(
+              `[MONITORING] Updated battery: ${result.data.battery_level}%`,
+            );
+          }
+
+          // Update water level (level column from monitoring_logs)
+          if (result.data.level !== null && result.data.level !== undefined) {
+            setWaterLevel(result.data.level);
+            console.log(`[MONITORING] Updated level: ${result.data.level}cm`);
+          }
+
+          // Update signal strength if available
+          if (
+            result.data.signal_strength !== null &&
+            result.data.signal_strength !== undefined
+          ) {
+            setRssi(result.data.signal_strength);
+            console.log(
+              `[MONITORING] Updated signal: ${result.data.signal_strength}`,
+            );
+          }
         }
       } catch (error) {
-        console.error(`[PH-REALTIME] Error fetching pH:`, error);
+        console.error(`[MONITORING] Error fetching data:`, error);
       }
     };
 
-    fetchPhRealtime();
+    fetchMonitoringData();
 
     // Setup polling interval: update setiap 5 detik
     const pollInterval = setInterval(() => {
-      fetchPhRealtime();
+      fetchMonitoringData();
     }, 5000);
 
     return () => clearInterval(pollInterval);
   }, []);
 
-  // Fetch water level
-  useEffect(() => {
-    const fetchWaterLevel = async () => {
-      try {
-        const response = await fetch("/api/water-level?location=sawah");
-        const data = await response.json();
-
-        if (data.success && data.value !== null) {
-          setWaterLevel(data.value);
-        }
-      } catch (error) {
-        console.error("[WATER-LEVEL] Error fetching:", error);
-      }
-    };
-
-    fetchWaterLevel();
-
-    const pollInterval = setInterval(() => {
-      fetchWaterLevel();
-    }, 5000);
-
-    return () => clearInterval(pollInterval);
-  }, []);
-
-  // Simulasi real-time untuk baterai, pulsa, kuota
+  // Simulasi real-time untuk baterai, pulsa, kuota, dan RSSI
   useEffect(() => {
     const interval = setInterval(() => {
       setBattery((prev) => Math.max(0, prev - Math.random() * 0.5));
       setCredit((prev) => Math.max(0, prev - Math.random() * 100));
       setKuota((prev) => Math.max(0, prev - 0.01));
+
+      // Simulasi RSSI yang berubah-ubah (untuk testing, nanti bisa diganti dengan data real)
+      const possibleRssi = [31, 25, 22, 18, 16, 12, 8, 5, 2, 0, 99];
+      setRssi(possibleRssi[Math.floor(Math.random() * possibleRssi.length)]);
     }, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -156,6 +179,62 @@ export default function Dashboard() {
     return "#16A34A";
   };
 
+  // Function to determine RSSI status based on CSQ value
+  const getRssiStatus = (
+    csq: number,
+  ): { status: string; quality: string; color: string; bgColor: string } => {
+    if (csq === 99) {
+      return {
+        status: "Tidak Ada Sinyal",
+        quality: "N/A",
+        color: "text-gray-600",
+        bgColor: "bg-gray-100",
+      };
+    } else if (csq >= 31) {
+      return {
+        status: "Sangat Baik",
+        quality: "Excellent",
+        color: "text-green-600",
+        bgColor: "bg-green-100",
+      };
+    } else if (csq >= 20) {
+      return {
+        status: "Baik",
+        quality: "Good",
+        color: "text-blue-600",
+        bgColor: "bg-blue-100",
+      };
+    } else if (csq >= 15) {
+      return {
+        status: "Cukup",
+        quality: "Fair",
+        color: "text-yellow-600",
+        bgColor: "bg-yellow-100",
+      };
+    } else if (csq >= 10) {
+      return {
+        status: "Lemah",
+        quality: "Weak",
+        color: "text-orange-600",
+        bgColor: "bg-orange-100",
+      };
+    } else if (csq >= 2) {
+      return {
+        status: "Sangat Lemah",
+        quality: "Marginal",
+        color: "text-red-600",
+        bgColor: "bg-red-100",
+      };
+    } else {
+      return {
+        status: "Hampir Putus",
+        quality: "Critical",
+        color: "text-red-700",
+        bgColor: "bg-red-200",
+      };
+    }
+  };
+
   const handlePumpToggle = async (checked: boolean) => {
     setIsPumpOn(checked);
 
@@ -196,10 +275,7 @@ export default function Dashboard() {
         });
       }
 
-      console.log(
-        `HTTP: Pump ${checked ? "ON" : "OFF"} - Response:`,
-        data,
-      );
+      console.log(`HTTP: Pump ${checked ? "ON" : "OFF"} - Response:`, data);
     } catch (error) {
       console.error("Error sending pump status:", error);
       setIsPumpOn(!checked);
@@ -289,20 +365,30 @@ export default function Dashboard() {
         </div>
 
         {/* Connection Status */}
-        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-          <span className="text-sm font-medium">Status Koneksi</span>
+        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
           <div className="flex items-center gap-2">
+            <span className="text-sm font-medium">Status Koneksi</span>
             {isOnline ? (
-              <>
-                <Wifi className="w-5 h-5 text-green-600" />
-                <span className="text-green-600 font-bold text-sm">Online</span>
-              </>
+              <Wifi className="w-4 h-4 text-green-600" />
             ) : (
-              <>
-                <WifiOff className="w-5 h-5 text-red-600" />
-                <span className="text-red-600 font-bold text-sm">Offline</span>
-              </>
+              <WifiOff className="w-4 h-4 text-red-600" />
             )}
+          </div>
+          <div className="flex items-center gap-3">
+            <div
+              className={`px-3 py-1 rounded-lg text-xs font-semibold ${getRssiStatus(rssi).bgColor} ${getRssiStatus(rssi).color}`}
+            >
+              <div className="flex items-center gap-1">
+                <span className="font-bold">{rssi}</span>
+                <span>|</span>
+                <span>{getRssiStatus(rssi).status}</span>
+              </div>
+            </div>
+            <span
+              className={`font-bold text-sm ${isOnline ? "text-green-600" : "text-red-600"}`}
+            >
+              {isOnline ? "Online" : "Offline"}
+            </span>
           </div>
         </div>
       </div>
