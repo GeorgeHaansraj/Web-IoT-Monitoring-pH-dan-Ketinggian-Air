@@ -328,7 +328,7 @@ export default function Dashboard() {
 
         <div className="grid grid-cols-2 gap-4">
           {/* Battery Widget */}
-          <div className="bg-gradient-to-br from-green-50 to-green-100 rounded-lg p-4">
+          <div className="bg-linear-to-br from-green-50 to-green-100 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
               <Battery className="w-5 h-5 text-green-600" />
               <span className="text-sm text-gray-600 font-medium">Baterai</span>
@@ -343,7 +343,7 @@ export default function Dashboard() {
           </div>
 
           {/* Credit Widget */}
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg p-4">
+          <div className="bg-linear-to-br from-blue-50 to-blue-100 rounded-lg p-4">
             <div className="flex items-center gap-2 mb-2">
               <DollarSign className="w-5 h-5 text-blue-600" />
               <span className="text-sm text-gray-600 font-medium">Pulsa</span>
@@ -356,7 +356,7 @@ export default function Dashboard() {
         </div>
 
         {/* Data Usage Widget */}
-        <div className="bg-gradient-to-br from-purple-50 to-purple-100 rounded-lg p-4">
+        <div className="bg-linear-to-br from-purple-50 to-purple-100 rounded-lg p-4">
           <div className="flex items-center gap-2 mb-2">
             <Wifi className="w-5 h-5 text-purple-600" />
             <span className="text-sm text-gray-600 font-medium">Data</span>

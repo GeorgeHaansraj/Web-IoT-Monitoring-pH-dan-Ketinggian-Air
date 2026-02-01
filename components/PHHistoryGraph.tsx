@@ -374,7 +374,7 @@ export default function PHHistoryGraph() {
       {/* Kontainer Scroll */}
       <div className="w-full overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
         <div style={{ minWidth: getMinWidth() }}>
-          <div className="h-[280px] w-full">
+          <div className="h-70 w-full">
             {loading ? (
               <div className="flex items-center justify-center h-full text-slate-400">
                 <span>Memuat data pH...</span>
