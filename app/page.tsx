@@ -191,7 +191,6 @@ export default function Dashboard() {
     }, 10000);
     return () => clearInterval(interval);
   }, []);
-  }, []);
 
   // Handle page unload for manual mode pump auto-OFF
   useEffect(() => {
