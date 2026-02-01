@@ -295,12 +295,6 @@ export default function Dashboard() {
       toast.error(
         error instanceof Error ? error.message : "Gagal mengontrol pompa"
       );
-        style: {
-          background: "#ffffff",
-          color: "#dc2626",
-          border: "1px solid #991b1b",
-        },
-      });
     }
   };
 
