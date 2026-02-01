@@ -14,13 +14,16 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  email     String   @unique
-  name      String?
-  password  String
-  role      String   @default("user") // "user" or "admin"
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String        @id @default(cuid())
+  email        String        @unique
+  name         String?
+  password     String
+  role         String        @default("user") // "user" or "admin"
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  
+  // Relasi untuk tracking pump control
+  pumpHistory  PumpHistory[]
 }
 
 model PHReading {
@@ -83,11 +86,13 @@ model PumpHistory {
   previousState Boolean
   newState     Boolean
   changedBy    String   @default("dashboard") // "dashboard", "esp", "manual"
-  userId       String?  // Optional: who triggered it
+  userId       String?
+  user         User?    @relation(fields: [userId], references: [id])
   timestamp    DateTime @default(now())
   
   @@map("pump_history")
   @@index([mode, timestamp])
+  @@index([userId])
 }
 
 model MonitoringLog {
@@ -95,7 +100,7 @@ model MonitoringLog {
   battery_level  Float?   // Battery percentage (0-100)
   ph_value       Float?   // pH value (0-14)
   level          Float?   // Water level in cm
-  temperature    Float?   // Temperature from pH sensor
+  temperature    Float?   // Temperature from pH sensor (optional, may not exist in old schemas)
   signal_strength Int?    // Signal quality (CSQ)
   created_at     DateTime @default(now())
   deviceId       String?  // Device identifier

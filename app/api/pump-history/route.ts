@@ -8,9 +8,18 @@ export async function GET(req: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "20", 10);
     const offset = parseInt(searchParams.get("offset") || "0", 10);
 
-    // Ambil riwayat aktivasi pompa
+    // Ambil riwayat aktivasi pompa dengan info user
     const pumpHistory = await prisma.pumpHistory.findMany({
       where: { mode },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          },
+        },
+      },
       orderBy: { timestamp: "desc" },
       take: limit,
       skip: offset,

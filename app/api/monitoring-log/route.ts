@@ -85,6 +85,16 @@ export async function GET(request: NextRequest) {
   try {
     const latestLog = await prisma.monitoringLog.findFirst({
       orderBy: { created_at: "desc" },
+      select: {
+        id: true,
+        battery_level: true,
+        ph_value: true,
+        level: true,
+        temperature: true,
+        signal_strength: true,
+        created_at: true,
+        deviceId: true,
+      },
     });
 
     if (!latestLog) {
@@ -113,7 +123,9 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error("[MONITORING-LOG] Error:", error);
 
+    // More specific error handling
     if (error?.code === "P2021" || error?.code === "P2022") {
+      console.error("[MONITORING-LOG] Table or column missing:", error.message);
       return NextResponse.json(
         {
           success: false,
@@ -127,6 +139,7 @@ export async function GET(request: NextRequest) {
       {
         success: false,
         error: "Failed to fetch monitoring data",
+        message: error?.message,
       },
       { status: 500 },
     );

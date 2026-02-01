@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/auth";
 
 // Konfigurasi Bridge PHP
 const BRIDGE_URL = process.env.BRIDGE_PHP_URL || "http://20.2.138.40";
@@ -74,8 +75,12 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
+    // Get user session untuk tracking siapa yang mengontrol
+    const session = await auth();
+    const userId = (session?.user as { id?: string } | undefined)?.id;
+
     const body = await req.json();
-    const { mode = "sawah", isOn, changedBy = "dashboard", userId } = body;
+    const { mode = "sawah", isOn, changedBy = "dashboard" } = body;
 
     if (isOn === undefined) {
       return NextResponse.json(
@@ -112,7 +117,7 @@ export async function POST(req: NextRequest) {
           previousState: previousState,
           newState: isOn,
           changedBy,
-          userId,
+          userId: userId || null, // Capture user ID dari session
           timestamp: new Date(),
         },
       });

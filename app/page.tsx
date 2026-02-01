@@ -63,7 +63,10 @@ export default function Dashboard() {
       try {
         const response = await fetch(`/api/monitoring-log`);
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
+          console.error(`[MONITORING] API error: HTTP ${response.status}`);
+          const errorData = await response.json().catch(() => ({}));
+          console.error("[MONITORING] Error details:", errorData);
+          return;
         }
         const result = await response.json();
 

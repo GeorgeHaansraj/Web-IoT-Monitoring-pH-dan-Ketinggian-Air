@@ -71,16 +71,19 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      location,
       range,
       dataPoints: aggregated.length,
       data: aggregated,
       fetchedAt: new Date(),
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error("[PH-HISTORY] Error fetching pH history:", error);
     return NextResponse.json(
-      { error: "Failed to fetch pH history" },
+      {
+        success: false,
+        error: "Failed to fetch pH history",
+        message: error?.message,
+      },
       { status: 500 },
     );
   }
