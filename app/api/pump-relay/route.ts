@@ -48,7 +48,7 @@ export async function GET(req: NextRequest) {
     const mode = searchParams.get("mode") || "sawah";
 
     // Ambil status pompa terbaru dari database
-    const pumpStatus = await prisma.pumpStatus.findUnique({
+    let pumpStatus = await prisma.pumpStatus.findUnique({
       where: { mode },
     });
 
@@ -59,10 +59,48 @@ export async function GET(req: NextRequest) {
       );
     }
 
+    // Auto-OFF logic untuk timed mode
+    if (pumpStatus.isOn && !pumpStatus.isManualMode && pumpStatus.pumpStartTime && pumpStatus.pumpDuration) {
+      const elapsed = (Date.now() - pumpStatus.pumpStartTime.getTime()) / (1000 * 60 * 60); // dalam jam
+      if (elapsed > pumpStatus.pumpDuration) {
+        // Auto-OFF: waktu habis
+        console.log(`[PUMP] Auto-OFF duration expired for ${mode} (elapsed: ${elapsed.toFixed(2)}h, duration: ${pumpStatus.pumpDuration}h)`);
+        
+        pumpStatus = await prisma.pumpStatus.update({
+          where: { mode },
+          data: {
+            isOn: false,
+            updatedAt: new Date(),
+            isManualMode: false,
+            pumpDuration: null,
+            pumpStartTime: null,
+          },
+        });
+
+        // Record history
+        await prisma.pumpHistory.create({
+          data: {
+            mode,
+            previousState: true,
+            newState: false,
+            changedBy: "auto-duration",
+            userId: null,
+            timestamp: new Date(),
+          },
+        });
+
+        // Trigger hardware OFF
+        await triggerBridgeRelay(mode, false);
+      }
+    }
+
     return NextResponse.json({
       mode: pumpStatus.mode,
       isOn: pumpStatus.isOn,
       updatedAt: pumpStatus.updatedAt,
+      isManualMode: pumpStatus.isManualMode,
+      pumpDuration: pumpStatus.pumpDuration,
+      pumpStartTime: pumpStatus.pumpStartTime,
     });
   } catch (error) {
     console.error("Error fetching pump status:", error);
@@ -95,7 +133,7 @@ export async function POST(req: NextRequest) {
     const userName = (session.user as { name?: string }).name || "Unknown";
 
     const body = await req.json();
-    const { mode = "sawah", isOn, changedBy = "dashboard" } = body;
+    const { mode = "sawah", isOn, changedBy = "dashboard", duration = null, isManualMode = false } = body;
 
     if (isOn === undefined) {
       return NextResponse.json(
@@ -177,10 +215,16 @@ export async function POST(req: NextRequest) {
       update: {
         isOn: isOn,
         updatedAt: new Date(),
+        isManualMode: isOn ? isManualMode : false,
+        pumpDuration: isOn ? (isManualMode ? null : duration) : null,
+        pumpStartTime: isOn ? new Date() : null,
       },
       create: {
         mode,
         isOn: isOn,
+        isManualMode: isOn ? isManualMode : false,
+        pumpDuration: isOn ? (isManualMode ? null : duration) : null,
+        pumpStartTime: isOn ? new Date() : null,
       },
     });
 

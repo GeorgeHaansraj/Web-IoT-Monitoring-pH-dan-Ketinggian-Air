@@ -71,11 +71,16 @@ model DeviceStatus {
   @@map("device_status")
 }
 model PumpStatus {
-  id        String   @id @default(cuid())
-  mode      String   @unique // "sawah" or "kolam"
-  isOn      Boolean  @default(false)
-  updatedAt DateTime @updatedAt
-  createdAt DateTime @default(now())
+  id            String   @id @default(cuid())
+  mode          String   @unique // "sawah" or "kolam"
+  isOn          Boolean  @default(false)
+  updatedAt     DateTime @updatedAt
+  createdAt     DateTime @default(now())
+  
+  // NEW: Duration tracking for timed pump control
+  pumpDuration  Int?     // Duration in hours (null = manual/indefinite)
+  pumpStartTime DateTime? // When pump was turned ON (for calculating auto-OFF)
+  isManualMode  Boolean  @default(false) // true = manual (no auto-OFF by duration), false = timed
   
   @@map("pump_status")
 }
