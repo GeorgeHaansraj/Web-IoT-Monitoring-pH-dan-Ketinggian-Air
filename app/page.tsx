@@ -428,7 +428,7 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Kontrol Pompa */}
+        {/* Kontrol Pompa Toggle*/}
         <div className="bg-white rounded-xl shadow-md p-6 border border-gray-100 mt-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
