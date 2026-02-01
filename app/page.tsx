@@ -184,7 +184,7 @@ export default function Dashboard() {
           // This ensures UI button resets even if user forgets or manually set ON
           if (data.command === "OFF" && isPumpOn) {
             console.warn(
-              `[COMMAND] State expired (age: ${data.age_seconds}s), resetting UI to OFF`
+              `[COMMAND] State expired (age: ${data.age_seconds}s), resetting UI to OFF`,
             );
             setIsPumpOn(false);
             setIsManualMode(false);
