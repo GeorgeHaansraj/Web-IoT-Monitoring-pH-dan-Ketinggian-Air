@@ -16,6 +16,7 @@ export async function GET() {
                 activeMode: 'sawah',
                 battery: 0,
                 signal: 0,
+                pumpStatus: false,
                 lastUpdate: new Date().toISOString(),
             });
         }
@@ -24,6 +25,7 @@ export async function GET() {
             activeMode: deviceStatus.activeMode,
             battery: deviceStatus.battery || 0,
             signal: deviceStatus.signal || 0,
+            pumpStatus: deviceStatus.pumpStatus || false,
             lastUpdate: deviceStatus.lastUpdate.toISOString(),
         });
     } catch (error) {
@@ -38,7 +40,7 @@ export async function GET() {
 export async function PUT(request: Request) {
     try {
         const body = await request.json();
-        const { activeMode, battery, signal } = body;
+        const { activeMode, battery, signal, pumpStatus } = body;
 
         // Update device status
         const updatedStatus = await prisma.deviceStatus.upsert({
@@ -50,11 +52,13 @@ export async function PUT(request: Request) {
                 activeMode: activeMode || 'sawah',
                 battery: battery,
                 signal: signal,
+                pumpStatus: pumpStatus || false,
             },
             update: {
                 activeMode: activeMode,
                 battery: battery,
                 signal: signal,
+                pumpStatus: pumpStatus,
             },
         });
 

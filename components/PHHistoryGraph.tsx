@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   XAxis,
   YAxis,
@@ -11,50 +11,60 @@ import {
   Area,
 } from "recharts";
 import { BarChart3, MoveHorizontal } from "lucide-react";
+import { format } from "date-fns";
 
 type TimeRange = "hour" | "day" | "month" | "year";
 
+interface MonitoringLog {
+  id: number;
+  ph_value: string | number;
+  created_at: string;
+}
+
 export default function PHHistoryGraph() {
   const [range, setRange] = useState<TimeRange>("hour");
+  const [data, setData] = useState<{ t: string; ph: number }[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Data mapping tetap sama (24 jam, 7 hari, 12 bulan, dsb)
-  const dataMapping = {
-    hour: Array.from({ length: 24 }, (_, i) => ({
-      t: `${i.toString().padStart(2, "0")}:00`,
-      ph: 7 + Math.random() * 0.4 - 0.2,
-    })),
-    day: [
-      { t: "Senin", ph: 7.1 },
-      { t: "Selasa", ph: 7.3 },
-      { t: "Rabu", ph: 7.0 },
-      { t: "Kamis", ph: 7.4 },
-      { t: "Jumat", ph: 7.2 },
-      { t: "Sabtu", ph: 7.1 },
-      { t: "Minggu", ph: 7.3 },
-    ],
-    month: [
-      { t: "Januari", ph: 7.0 },
-      { t: "Februari", ph: 7.2 },
-      { t: "Maret", ph: 7.5 },
-      { t: "April", ph: 7.1 },
-      { t: "Mei", ph: 6.8 },
-      { t: "Juni", ph: 7.3 },
-      { t: "Juli", ph: 7.4 },
-      { t: "Agustus", ph: 7.2 },
-      { t: "September", ph: 7.0 },
-      { t: "Oktober", ph: 7.1 },
-      { t: "November", ph: 6.9 },
-      { t: "Desember", ph: 7.0 },
-    ],
-    year: [
-      { t: "2021", ph: 7.2 },
-      { t: "2022", ph: 7.0 },
-      { t: "2023", ph: 7.5 },
-      { t: "2024", ph: 7.1 },
-      { t: "2025", ph: 6.8 },
-      { t: "2026", ph: 7.3 },
-    ],
-  };
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        // Fetch data based on range (simplified logic: fetch latest 100 for now)
+        // Ideally pass range to API to filter by date
+        const limitMap = {
+          hour: 24,
+          day: 7, // Fetching limited points for demo, real implementation needs aggregation
+          month: 30,
+          year: 12,
+        };
+
+        const limit = 100; // Fetch enough history
+        const response = await fetch(`/api/ph?limit=${limit}`);
+        if (!response.ok) throw new Error("Failed to fetch data");
+
+        const result: MonitoringLog[] = await response.json();
+
+        // Transform data
+        // Sort by time ascending for graph
+        const sortedData = result.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+        const formattedData = sortedData.map(item => ({
+          t: format(new Date(item.created_at), "HH:mm"), // Default format
+          ph: Number(item.ph_value),
+          originalDate: new Date(item.created_at)
+        }));
+
+        setData(formattedData);
+      } catch (error) {
+        console.error("Error fetching graph data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [range]);
 
   /**
    * LOGIKA LEBAR DINAMIS:
@@ -62,18 +72,9 @@ export default function PHHistoryGraph() {
    * memiliki ruang minimal 50-80px untuk bernapas.
    */
   const getMinWidth = () => {
-    switch (range) {
-      case "hour":
-        return "1400px"; // 24 titik data x ~58px
-      case "month":
-        return "1000px"; // 12 titik data x ~83px
-      case "day":
-        return "700px"; // 7 titik data x 100px
-      case "year":
-        return "600px"; // 6 titik data x 100px
-      default:
-        return "100%;";
-    }
+    // Dynamic width based on real data length
+    const dataLength = data.length || 24;
+    return `${Math.max(600, dataLength * 50)}px`;
   };
 
   return (
@@ -89,17 +90,16 @@ export default function PHHistoryGraph() {
         </div>
       </div>
 
-      {/* Selector Periode */}
+      {/* Selector Periode - Currently just refreshes data */}
       <div className="flex bg-slate-100 p-1 rounded-lg gap-1">
         {(["hour", "day", "month", "year"] as TimeRange[]).map((r) => (
           <button
             key={r}
             onClick={() => setRange(r)}
-            className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all uppercase ${
-              range === r
+            className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all uppercase ${range === r
                 ? "bg-white text-blue-600 shadow-sm"
                 : "text-slate-500 hover:text-slate-700"
-            }`}
+              }`}
           >
             {r === "hour"
               ? "Jam"
@@ -116,63 +116,69 @@ export default function PHHistoryGraph() {
       <div className="w-full overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
         <div style={{ minWidth: getMinWidth() }}>
           <div className="h-[280px] w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={dataMapping[range]}
-                margin={{ left: -10, right: 30, bottom: 20 }}
-              >
-                <defs>
-                  <linearGradient id="colorPh" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid
-                  strokeDasharray="3 3"
-                  vertical={true}
-                  stroke="#C0C0C0"
-                />
-                <XAxis
-                  dataKey="t"
-                  fontSize={11}
-                  tickLine={true}
-                  axisLine={false}
-                  tick={{ fill: "#64748b", fontWeight: 500 }}
-                  dy={15}
-                />
-                <YAxis
-                  domain={[4, 10]}
-                  fontSize={11}
-                  tickLine={false}
-                  axisLine={false}
-                  tick={{ fill: "#94a3b8" }}
-                  width={45}
-                />
-                <Tooltip
-                  cursor={{
-                    stroke: "#3b82f6",
-                    strokeWidth: 1,
-                    strokeDasharray: "4 4",
-                  }}
-                  contentStyle={{
-                    borderRadius: "12px",
-                    border: "none",
-                    boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
-                    fontSize: "12px",
-                    padding: "12px",
-                  }}
-                />
-                <Area
-                  type="monotone"
-                  dataKey="ph"
-                  stroke="#3b82f6"
-                  strokeWidth={3}
-                  fillOpacity={1}
-                  fill="url(#colorPh)"
-                  animationDuration={1000}
-                />
-              </AreaChart>
-            </ResponsiveContainer>
+            {loading ? (
+              <div className="flex items-center justify-center h-full text-gray-400">
+                Memuat data...
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={data}
+                  margin={{ left: -10, right: 30, bottom: 20 }}
+                >
+                  <defs>
+                    <linearGradient id="colorPh" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid
+                    strokeDasharray="3 3"
+                    vertical={true}
+                    stroke="#C0C0C0"
+                  />
+                  <XAxis
+                    dataKey="t"
+                    fontSize={11}
+                    tickLine={true}
+                    axisLine={false}
+                    tick={{ fill: "#64748b", fontWeight: 500 }}
+                    dy={15}
+                  />
+                  <YAxis
+                    domain={[4, 10]}
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fill: "#94a3b8" }}
+                    width={45}
+                  />
+                  <Tooltip
+                    cursor={{
+                      stroke: "#3b82f6",
+                      strokeWidth: 1,
+                      strokeDasharray: "4 4",
+                    }}
+                    contentStyle={{
+                      borderRadius: "12px",
+                      border: "none",
+                      boxShadow: "0 10px 15px -3px rgba(0,0,0,0.1)",
+                      fontSize: "12px",
+                      padding: "12px",
+                    }}
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="ph"
+                    stroke="#3b82f6"
+                    strokeWidth={3}
+                    fillOpacity={1}
+                    fill="url(#colorPh)"
+                    animationDuration={1000}
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
           </div>
         </div>
       </div>

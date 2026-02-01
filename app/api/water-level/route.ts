@@ -4,11 +4,10 @@ import { prisma } from "@/lib/prisma";
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    const location = searchParams.get("location");
     const limit = parseInt(searchParams.get("limit") || "100");
 
+    // Location filtering removed as field is deleted
     const readings = await prisma.waterLevelReading.findMany({
-      where: location ? { location } : undefined,
       orderBy: { timestamp: "desc" },
       take: limit,
     });
@@ -26,7 +25,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { level, location, deviceId, mode } = body;
+    const { level, location, mode } = body; // deviceId removed
 
     // Validasi input
     if (!level || level < 0) {
@@ -36,17 +35,19 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Tentukan status berdasarkan mode dan ketinggian air
+    // Tentukan status berdasarkan mode dan ketinggian air (for Alerts only)
     let status = "normal";
 
-    if (mode === "sawah") {
+    const activeMode = mode || location || "sawah"; // Fallback to sawah or location if mode not sent
+
+    if (activeMode === "sawah") {
       // Sawah: optimal 30-60cm
       if (level < 15) status = "critical";
       else if (level < 30) status = "low";
       else if (level <= 60) status = "normal";
       else if (level < 75) status = "high";
       else status = "very_high";
-    } else if (mode === "kolam") {
+    } else if (activeMode === "kolam") {
       // Kolam: optimal 80-130cm
       if (level < 40) status = "critical";
       else if (level < 80) status = "low";
@@ -58,9 +59,7 @@ export async function POST(request: NextRequest) {
     const reading = await prisma.waterLevelReading.create({
       data: {
         level: parseFloat(level),
-        location: location || mode,
-        deviceId,
-        status,
+        // location, deviceId, status removed from schema
       },
     });
 
@@ -83,8 +82,8 @@ export async function POST(request: NextRequest) {
       await prisma.alert.create({
         data: {
           type: typeMap[status] || "water_alert",
-          message: `Level air ${status} di ${mode}: ${level}cm (${location || "default"})`,
-          location: location || mode,
+          message: `Level air ${status} di ${activeMode}: ${level}cm`,
+          location: activeMode, // Alert still needs location context
           severity: severityMap[status] || "medium",
         },
       });
@@ -92,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: `Data level air ${location || mode} berhasil disimpan: ${level}cm`,
+      message: `Data level air berhasil disimpan: ${level}cm`,
       reading: reading,
     });
   } catch (error) {

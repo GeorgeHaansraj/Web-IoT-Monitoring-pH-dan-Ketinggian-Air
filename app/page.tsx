@@ -58,118 +58,78 @@ export default function Dashboard() {
   >([]);
   const [kolamWaterLevel, setKolamWaterLevel] = useState(120); // dalam cm
 
-  // Fetch device status from database on mount
+  // Fetch device status and latest readings from database periodically
   useEffect(() => {
-    const fetchDeviceStatus = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch("/api/device-status");
-        const data = await response.json();
+        // Fetch Sawah Data
+        const sawahRes = await fetch("/api/latest-readings?location=sawah");
+        const sawahData = await sawahRes.json();
 
-        if (data.battery !== undefined) setBattery(data.battery);
-        if (data.deviceActualLocation)
-          setDeviceActualLocation(data.deviceActualLocation);
+        if (sawahData.deviceStatus) {
+          if (sawahData.deviceStatus.battery !== undefined) setBattery(sawahData.deviceStatus.battery);
+          if (sawahData.deviceStatus.pumpStatus !== undefined) setSawahPumpOn(sawahData.deviceStatus.pumpStatus);
+        }
+
+        if (sawahData.ph) {
+          setSawahPH(Number(sawahData.ph.value));
+          // Keep history graph separate or implementing history fetch? 
+          // For realtime "Now" point, we can add it, but PHHistoryGraph uses its own history fetch.
+          // app/page.tsx has "sawahPhData" state but passing it to where? 
+          // Looking at render, `PHHistoryGraph` handles its own data? 
+          // No, `PHHistoryGraph` component is imported.
+          // Wait, `app/page.tsx` renders `PHHistoryGraph` at line 555.
+          // BEFORE my edit, `PHHistoryGraph` was stateless/random. 
+          // NOW `PHHistoryGraph` fetches its OWN data from API!
+          // So `sawahPhData` state in `app/page.tsx` might be UNUSED by the graph?
+          // Let's check usage of `sawahPhData`: 
+          // It was used in MQTT logic `setSawahPhData`.
+          // Is it passed to any component?
+          // `SawahViz`? `KolamViz`? 
+          // Lines 19-20 imported them. Are they used?
+          // Reviewing entire file... `SawahViz` NOT used in return JSX?
+          // Ah, I see `WaterLevelMeter`. `PHHistoryGraph`. 
+          // I don't see `SawahViz` or `KolamViz` in the JSX I read earlier (lines 304-589).
+          // So `sawahPhData` might be dead code if I don't pass it.
+          // I'll keep the state update just in case, but focused on PH/WaterLevel/Battery/Pump.
+        }
+
+        if (sawahData.waterLevel) {
+          setSawahWaterLevel(sawahData.waterLevel.level);
+        }
+
+        // Fetch Kolam Data
+        const kolamRes = await fetch("/api/latest-readings?location=kolam");
+        const kolamData = await kolamRes.json();
+
+        if (kolamData.ph) {
+          setKolamPH(Number(kolamData.ph.value));
+        }
+        if (kolamData.waterLevel) {
+          setKolamWaterLevel(kolamData.waterLevel.level);
+        }
+
       } catch (error) {
-        console.error("Error fetching device status:", error);
+        console.error("Error fetching data:", error);
       }
     };
 
-    fetchDeviceStatus();
+    fetchData(); // Initial fetch
+    const interval = setInterval(fetchData, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(interval);
   }, []);
 
   // Tidak perlu sinkronisasi dengan userRole lagi karena menampilkan semua mode
 
-  // Simulasi real-time (Tetap sama)
+  // Simulasi real-time (Hanya untuk Pulsa dan Kuota)
   useEffect(() => {
     const interval = setInterval(() => {
-      setBattery((prev) => Math.max(0, prev - Math.random() * 0.5));
+      // setBattery removed from simulation
       setCredit((prev) => Math.max(0, prev - Math.random() * 100));
       setKuota((prev) => Math.max(0, prev - 0.01));
     }, 10000);
     return () => clearInterval(interval);
-  }, []);
-
-  // Mode Detail MQTT Connection & Simulation
-  useEffect(() => {
-    // Koneksi ke HiveMQ via WebSockets
-    const client = mqtt.connect("wss://YOUR_HIVEMQ_HOST:8884/mqtt", {
-      username: "YOUR_USERNAME",
-      password: "YOUR_PASSWORD",
-    });
-
-    client.on("connect", () => {
-      console.log("Connected to MQTT via Browser");
-      client.subscribe(`dwipha/+/+`);
-    });
-
-    client.on("message", (topic, message) => {
-      try {
-        const payload = JSON.parse(message.toString());
-
-        if (topic.includes("sawah")) {
-          if (topic.includes("ph")) {
-            setSawahPH(payload.value);
-            setSawahPhData((prev) => [
-              ...prev.slice(1),
-              { time: "Now", ph: payload.value },
-            ]);
-          } else if (topic.includes("water_level")) {
-            setSawahWaterLevel(payload.value);
-          }
-        } else if (topic.includes("kolam")) {
-          if (topic.includes("ph")) {
-            setKolamPH(payload.value);
-            setKolamPhData((prev) => [
-              ...prev.slice(1),
-              { time: "Now", ph: payload.value },
-            ]);
-          } else if (topic.includes("water_level")) {
-            setKolamWaterLevel(payload.value);
-          }
-        }
-      } catch (error) {
-        console.error("Error parsing MQTT message:", error);
-      }
-    });
-
-    const sawahInitialData = Array.from({ length: 6 }, (_, i) => ({
-      time: "Now",
-      ph: 7 + Math.random() * 0.5 - 0.25,
-    }));
-    setSawahPhData(sawahInitialData);
-
-    const kolamInitialData = Array.from({ length: 6 }, (_, i) => ({
-      time: "Now",
-      ph: 7.4 + Math.random() * 0.5 - 0.25,
-    }));
-    setKolamPhData(kolamInitialData);
-
-    const interval = setInterval(() => {
-      const newSawahPH = 7 + Math.random() * 0.4 - 0.2;
-      setSawahPH(newSawahPH);
-      setSawahPhData((prev) => [
-        ...prev.slice(1),
-        { time: "Now", ph: newSawahPH },
-      ]);
-      setSawahWaterLevel((prev) =>
-        Math.max(5, Math.min(80, prev + (Math.random() * 6 - 3))),
-      );
-
-      const newKolamPH = 7.4 + Math.random() * 0.4 - 0.2;
-      setKolamPH(newKolamPH);
-      setKolamPhData((prev) => [
-        ...prev.slice(1),
-        { time: "Now", ph: newKolamPH },
-      ]);
-      setKolamWaterLevel((prev) =>
-        Math.max(10, Math.min(150, prev + (Math.random() * 8 - 4))),
-      );
-    }, 3000);
-
-    // Cleanup function
-    return () => {
-      client.end();
-      clearInterval(interval);
-    };
   }, []);
 
   if (status === "loading") {
@@ -193,12 +153,23 @@ export default function Dashboard() {
           textColor: "text-yellow-700",
         };
       }
-      if (ph >= 6.5 && ph <= 8.5) {
+      if (ph >= 6.0 && ph <= 9.0) { // Expanded reliable range slightly or just stick to 6.5-8.5
+        // If strictly 6.5-8.5, then 6.0-6.5 is warning? User logic was <6.0 warning.
+        // Let's cover gaps.
+        if (ph >= 6.5 && ph <= 8.5) {
+          return {
+            status: "✅ AMAN: OPTIMAL",
+            action: "Kondisi air stabil. Lanjutkan pemantauan rutin.",
+            bgColor: "bg-green-50 border-green-200",
+            textColor: "text-green-700",
+          };
+        }
+        // Gap 6.0 - 6.5 or 8.5 - 9.0
         return {
-          status: "✅ AMAN: OPTIMAL",
-          action: "Kondisi air stabil. Lanjutkan pemantauan rutin.",
-          bgColor: "bg-green-50 border-green-200",
-          textColor: "text-green-700",
+          status: "⚠️ WARNING: PERHATIAN",
+          action: "pH mendekati batas ideal. Pantau terus.",
+          bgColor: "bg-yellow-50 border-yellow-200",
+          textColor: "text-yellow-700",
         };
       }
       if (ph > 9.0) {
@@ -221,13 +192,22 @@ export default function Dashboard() {
           textColor: "text-red-700",
         };
       }
-      if (ph >= 5.5 && ph <= 7.0) {
+      if (ph >= 5.0 && ph <= 7.5) { // Covers 5.0-5.5 (warning maybe?), 5.5-7.0 (ideal), 7.0-7.5 (tolerable)
+        if (ph >= 5.5 && ph <= 7.0) {
+          return {
+            status: "✅ AMAN: SUBUR",
+            action:
+              "Kondisi tanah ideal untuk penyerapan NPK. Pertahankan genangan air.",
+            bgColor: "bg-green-50 border-green-200",
+            textColor: "text-green-700",
+          };
+        }
+        // Gaps
         return {
-          status: "✅ AMAN: SUBUR",
-          action:
-            "Kondisi tanah ideal untuk penyerapan NPK. Pertahankan genangan air.",
-          bgColor: "bg-green-50 border-green-200",
-          textColor: "text-green-700",
+          status: "⚠️ WASPADA",
+          action: "Kondisi tanah sedikit diluar rentang optimal. Perlu pemantauan.",
+          bgColor: "bg-yellow-50 border-yellow-200",
+          textColor: "text-yellow-700",
         };
       }
       if (ph > 7.5) {
@@ -272,28 +252,29 @@ export default function Dashboard() {
     );
   };
 
-  const handlePumpToggle = (checked: boolean) => {
-    // Monitoring section always controls sawah pump
+  const handlePumpToggle = async (checked: boolean) => {
+    // Optimistic update
     setSawahPumpOn(checked);
 
-    if (checked) {
-      toast("Pompa air dihidupkan", {
+    try {
+      await fetch('/api/device-status', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pumpStatus: checked }),
+      });
+
+      toast(checked ? "Pompa air dihidupkan" : "Pompa air dimatikan", {
         style: {
           background: "#ffffff",
           color: "#2563eb",
           border: "1px solid #1d4ed8",
         },
       });
-    } else {
-      toast("Pompa air dimatikan", {
-        style: {
-          background: "#ffffff",
-          color: "#2563eb",
-          border: "1px solid #1d4ed8",
-        },
-      });
+    } catch (error) {
+      console.error("Failed to update pump status", error);
+      toast("Gagal mengubah status pompa", { style: { color: 'red' } });
+      setSawahPumpOn(!checked); // Revert on error
     }
-    console.log(`MQTT: Pump Sawah ${checked ? "ON" : "OFF"}`);
   };
 
   // Monitoring section always shows sawah data
@@ -511,9 +492,8 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Droplet
-                className={`w-6 h-6 ${
-                  getPumpStatus() ? "text-blue-600" : "text-gray-400"
-                }`}
+                className={`w-6 h-6 ${getPumpStatus() ? "text-blue-600" : "text-gray-400"
+                  }`}
               />
               <div>
                 <h2 className="text-lg font-semibold">Kontrol Pompa</h2>
@@ -525,14 +505,12 @@ export default function Dashboard() {
             <Switch
               checked={getPumpStatus()}
               onCheckedChange={handlePumpToggle}
-              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors px-1 p-3 ${
-                getPumpStatus() ? "bg-blue-600" : "bg-gray-300"
-              }`}
+              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors px-1 p-3 ${getPumpStatus() ? "bg-blue-600" : "bg-gray-300"
+                }`}
             >
               <span
-                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                  getPumpStatus() ? "translate-x-6" : "translate-x-0"
-                }`}
+                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${getPumpStatus() ? "translate-x-6" : "translate-x-0"
+                  }`}
               />
             </Switch>
           </div>

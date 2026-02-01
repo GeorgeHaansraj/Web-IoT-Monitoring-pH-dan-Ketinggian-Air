@@ -7,9 +7,9 @@ export async function GET(request: NextRequest) {
     const location = searchParams.get('location')
     const limit = parseInt(searchParams.get('limit') || '100')
 
-    const readings = await prisma.pHReading.findMany({
+    const readings = await prisma.monitoringLog.findMany({
       where: location ? { location } : undefined,
-      orderBy: { timestamp: 'desc' },
+      orderBy: { created_at: 'desc' },
       take: limit,
     })
 
@@ -23,25 +23,30 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { value, location, deviceId, temperature } = body
+    const { value, location, temperature, battery } = body
 
-    const reading = await prisma.pHReading.create({
+    // Handle battery input (could be 'battery' or 'battery_level', assume 'battery' from request based on user prompt context "battery_level numeric")
+    // If request body sends 'battery', map it.
+
+    const reading = await prisma.monitoringLog.create({
       data: {
-        value: parseFloat(value),
+        ph_value: parseFloat(value),
         location,
-        deviceId,
-        temperature: temperature ? parseFloat(temperature) : null,
+        battery_level: battery ? parseFloat(battery) : null,
+        // temperature is not stored in MonitoringLog based on schema
       },
     })
 
+    const phValue = parseFloat(value)
+
     // Check for alerts
-    if (value < 6.5 || value > 8.5) {
+    if (phValue < 6.5 || phValue > 8.5) {
       await prisma.alert.create({
         data: {
-          type: value < 6.5 ? 'ph_low' : 'ph_high',
-          message: `pH level ${value < 6.5 ? 'too low' : 'too high'} at ${location}: ${value}`,
+          type: phValue < 6.5 ? 'ph_low' : 'ph_high',
+          message: `pH level ${phValue < 6.5 ? 'too low' : 'too high'} at ${location}: ${phValue}`,
           location,
-          severity: value < 6.0 || value > 9.0 ? 'critical' : 'medium',
+          severity: phValue < 6.0 || phValue > 9.0 ? 'critical' : 'medium',
         },
       })
     }
