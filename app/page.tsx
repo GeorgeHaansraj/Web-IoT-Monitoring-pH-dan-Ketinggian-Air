@@ -123,6 +123,55 @@ export default function Dashboard() {
     return () => clearInterval(pollInterval);
   }, []);
 
+  // FEATURE: Fetch pump status on login to sync UI with database
+  useEffect(() => {
+    if (!session?.user) return;
+
+    const fetchPumpStatus = async () => {
+      try {
+        console.log("[PUMP] Fetching pump status on login...");
+        const response = await fetch("/api/pump-relay?mode=sawah");
+        if (response.ok) {
+          const data = await response.json();
+          console.log("[PUMP] Status from DB:", data.isOn);
+          setIsPumpOn(data.isOn);
+        }
+      } catch (error) {
+        console.error("[PUMP] Error fetching pump status:", error);
+      }
+    };
+
+    // Fetch immediately on login
+    fetchPumpStatus();
+  }, [session?.user]);
+
+  // FEATURE: Realtime polling pump status every 10s to sync UI with DB
+  useEffect(() => {
+    if (!session?.user) return;
+
+    const pollPumpStatus = async () => {
+      try {
+        const response = await fetch("/api/pump-relay?mode=sawah");
+        if (response.ok) {
+          const data = await response.json();
+          // Update UI if status changed in database
+          if (data.isOn !== isPumpOn) {
+            console.log("[PUMP] Status changed in DB, updating UI:", data.isOn);
+            setIsPumpOn(data.isOn);
+          }
+        } else if (response.status === 401) {
+          console.warn("[PUMP] Session invalid");
+          setIsPumpOn(false);
+        }
+      } catch (error) {
+        console.error("[PUMP] Polling error:", error);
+      }
+    };
+
+    const pollInterval = setInterval(pollPumpStatus, 10000); // Poll every 10s
+    return () => clearInterval(pollInterval);
+  }, [session?.user, isPumpOn]);
+
   // Simulasi real-time untuk baterai, pulsa, kuota, dan RSSI
   useEffect(() => {
     const interval = setInterval(() => {
@@ -256,15 +305,15 @@ export default function Dashboard() {
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        
+
         if (response.status === 401) {
           toast.error("Session tidak valid. Silakan login kembali.");
           router.push("/login");
           return;
         }
-        
+
         throw new Error(
-          errorData.error || "Gagal mengirim status pompa ke server"
+          errorData.error || "Gagal mengirim status pompa ke server",
         );
       }
 
@@ -293,7 +342,7 @@ export default function Dashboard() {
       console.error("Error sending pump status:", error);
       setIsPumpOn(!checked);
       toast.error(
-        error instanceof Error ? error.message : "Gagal mengontrol pompa"
+        error instanceof Error ? error.message : "Gagal mengontrol pompa",
       );
     }
   };
