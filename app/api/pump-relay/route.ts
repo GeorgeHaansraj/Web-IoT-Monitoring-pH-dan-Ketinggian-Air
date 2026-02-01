@@ -77,7 +77,25 @@ export async function POST(req: NextRequest) {
   try {
     // Get user session untuk tracking siapa yang mengontrol
     const session = await auth();
-    const userId = (session?.user as { id?: string } | undefined)?.id;
+    
+    // SECURITY: Validate session exists and is active
+    if (!session || !session.user) {
+      return NextResponse.json(
+        { error: "Session tidak valid atau sudah expired. Silakan login kembali." },
+        { status: 401 },
+      );
+    }
+
+    // SECURITY: Validate user role has permission
+    const userRole = (session.user as { role?: string }).role;
+    if (userRole !== "admin") {
+      return NextResponse.json(
+        { error: "Hanya admin yang dapat mengontrol pompa" },
+        { status: 403 },
+      );
+    }
+
+    const userId = (session.user as { id?: string }).id;
 
     const body = await req.json();
     const { mode = "sawah", isOn, changedBy = "dashboard" } = body;
@@ -89,12 +107,67 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // SECURITY: If turning ON, verify session is valid (heartbeat check)
+    if (isOn) {
+      console.log("[PUMP] Heartbeat check - verifying session for ON command");
+      if (!session || !session.user) {
+        return NextResponse.json(
+          { error: "Session invalid - cannot turn pump ON" },
+          { status: 401 },
+        );
+      }
+    }
+
     // Get current status untuk riwayat
     const currentStatus = await prisma.pumpStatus.findUnique({
       where: { mode },
     });
 
     const previousState = currentStatus?.isOn || false;
+
+    // SECURITY: Check pump timeout (24 hours) - auto-OFF if exceeded
+    const PUMP_TIMEOUT_HOURS = 24;
+    const lastUpdate = currentStatus?.updatedAt ? new Date(currentStatus.updatedAt) : null;
+    if (lastUpdate && isOn && currentStatus?.isOn) {
+      const hoursSinceUpdate = (Date.now() - lastUpdate.getTime()) / (1000 * 60 * 60);
+      if (hoursSinceUpdate > PUMP_TIMEOUT_HOURS) {
+        console.warn(`[PUMP] Pump timeout exceeded (${hoursSinceUpdate.toFixed(1)}h), auto-turning OFF`);
+        // Auto turn off pump
+        const timeoutPumpStatus = await prisma.pumpStatus.update({
+          where: { mode },
+          data: {
+            isOn: false,
+            updatedAt: new Date(),
+          },
+        });
+
+        // Log timeout event
+        await prisma.pumpHistory.create({
+          data: {
+            mode,
+            previousState: true,
+            newState: false,
+            changedBy: "auto-timeout",
+            userId: userId || null,
+            timestamp: new Date(),
+          },
+        });
+
+        return NextResponse.json(
+          {
+            success: true,
+            message: `Pompa ${mode} dimatikan otomatis (timeout ${PUMP_TIMEOUT_HOURS}h)`,
+            data: {
+              mode: timeoutPumpStatus.mode,
+              isOn: timeoutPumpStatus.isOn,
+              updatedAt: timeoutPumpStatus.updatedAt,
+              reason: "timeout",
+            },
+          },
+          { status: 200 },
+        );
+      }
+    }
 
     // Update atau buat status pompa
     const pumpStatus = await prisma.pumpStatus.upsert({

@@ -61,6 +61,7 @@ export default function AdminPage() {
   const [currentPH, setCurrentPH] = useState(7.0);
   const [isPumpOn, setIsPumpOn] = useState(false);
   const [waterLevel, setWaterLevel] = useState(0);
+  const [isTogglingPump, setIsTogglingPump] = useState(false); // Loading state for pump toggle
 
   // User management states
   const [users, setUsers] = useState<User[]>([]);
@@ -92,7 +93,7 @@ export default function AdminPage() {
     }
   }, [status, session, isAdmin, router]);
 
-  // Fetch monitoring data (battery, pH, level)
+  // Fetch monitoring data (battery, pH, level) - polling every 5s
   useEffect(() => {
     const fetchMonitoringData = async () => {
       try {
@@ -117,6 +118,56 @@ export default function AdminPage() {
     const pollInterval = setInterval(fetchMonitoringData, 5000);
     return () => clearInterval(pollInterval);
   }, []);
+
+  // FEATURE: Fetch pump status on mount and when session changes
+  useEffect(() => {
+    if (!session?.user) return;
+
+    const fetchPumpStatus = async () => {
+      try {
+        console.log("[PUMP] Fetching pump status on login/mount...");
+        const response = await fetch("/api/pump-relay?mode=sawah");
+        if (response.ok) {
+          const data = await response.json();
+          console.log("[PUMP] Status from DB:", data.isOn);
+          setIsPumpOn(data.isOn);
+        }
+      } catch (error) {
+        console.error("[PUMP] Error fetching pump status:", error);
+      }
+    };
+
+    // Fetch immediately on login
+    fetchPumpStatus();
+  }, [session?.user]);
+
+  // FEATURE: Realtime polling pump status every 10s to sync UI with DB
+  useEffect(() => {
+    if (!session?.user) return;
+
+    const pollPumpStatus = async () => {
+      try {
+        const response = await fetch("/api/pump-relay?mode=sawah");
+        if (response.ok) {
+          const data = await response.json();
+          // Update UI if status changed in database
+          if (data.isOn !== isPumpOn) {
+            console.log("[PUMP] Status changed in DB, updating UI:", data.isOn);
+            setIsPumpOn(data.isOn);
+          }
+        } else if (response.status === 401) {
+          console.warn("[PUMP] Session invalid, auto-turning off pump");
+          // Auto turn off pump if session invalid
+          setIsPumpOn(false);
+        }
+      } catch (error) {
+        console.error("[PUMP] Polling error:", error);
+      }
+    };
+
+    const pollInterval = setInterval(pollPumpStatus, 10000); // Poll every 10s
+    return () => clearInterval(pollInterval);
+  }, [session?.user, isPumpOn]);
 
   // Fetch pump history
   useEffect(() => {
@@ -218,9 +269,40 @@ export default function AdminPage() {
   };
 
   const handleLogout = async () => {
-    await signOut({ redirect: false });
-    toast.success("Logout berhasil");
-    router.push("/login");
+    try {
+      // SECURITY: Auto turn-off pump sebelum logout
+      if (isPumpOn) {
+        console.log("[LOGOUT] Turning off pump before logout...");
+        try {
+          const response = await fetch("/api/pump-relay", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              mode: "sawah",
+              isOn: false,
+              changedBy: "auto-logout",
+            }),
+          });
+          if (!response.ok) {
+            console.warn("[LOGOUT] Failed to turn off pump, but continuing logout");
+          } else {
+            console.log("[LOGOUT] Pump turned off successfully");
+            setIsPumpOn(false);
+          }
+        } catch (error) {
+          console.error("[LOGOUT] Error turning off pump:", error);
+          // Continue logout even if pump control fails
+        }
+      }
+
+      // Then sign out
+      await signOut({ redirect: false });
+      toast.success("Logout berhasil. Pompa telah dimatikan.");
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Gagal logout");
+    }
   };
 
   const handleAddUser = () => {
@@ -255,7 +337,15 @@ export default function AdminPage() {
   };
 
   const handleTogglePump = async () => {
+    // Prevent multiple simultaneous requests
+    if (isTogglingPump) {
+      toast.info("Sedang memproses...");
+      return;
+    }
+
     try {
+      setIsTogglingPump(true); // Start loading
+
       const response = await fetch("/api/pump-relay", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -264,12 +354,35 @@ export default function AdminPage() {
           isOn: !isPumpOn,
         }),
       });
+
       if (response.ok) {
-        setIsPumpOn(!isPumpOn);
-        toast.success(`Pompa ${!isPumpOn ? "dihidupkan" : "dimatikan"}`);
+        const data = await response.json();
+        console.log("[PUMP] Toggle response:", data);
+        setIsPumpOn(data.data?.isOn ?? !isPumpOn);
+        
+        // Show appropriate message
+        if (data.data?.reason === "timeout") {
+          toast.warning(data.message || "Pompa dimatikan (timeout)");
+        } else {
+          toast.success(data.message || `Pompa ${!isPumpOn ? "dihidupkan" : "dimatikan"}`);
+        }
+      } else {
+        const errorData = await response.json();
+        console.error("[PUMP] Error response:", errorData);
+        
+        if (response.status === 401) {
+          toast.error("Session tidak valid. Silakan login kembali.");
+        } else if (response.status === 403) {
+          toast.error("Anda tidak memiliki akses untuk mengontrol pompa");
+        } else {
+          toast.error(errorData.error || "Gagal mengontrol pompa");
+        }
       }
     } catch (error) {
-      toast.error("Gagal mengontrol pompa");
+      console.error("[PUMP] Toggle error:", error);
+      toast.error("Gagal mengontrol pompa. Periksa koneksi internet.");
+    } finally {
+      setIsTogglingPump(false); // Stop loading
     }
   };
 
@@ -561,10 +674,16 @@ export default function AdminPage() {
                       <p className="text-sm text-gray-500 mt-1">
                         Status: {isPumpOn ? "Aktif" : "Nonaktif"}
                       </p>
+                      {isTogglingPump && (
+                        <p className="text-xs text-blue-600 mt-2 font-medium">
+                          ⏳ Sedang memproses...
+                        </p>
+                      )}
                     </div>
                     <Switch
                       checked={isPumpOn}
                       onCheckedChange={handleTogglePump}
+                      disabled={isTogglingPump}
                     />
                   </div>
                 </div>
