@@ -174,7 +174,33 @@ export default function Dashboard() {
       }
     };
 
-    const pollInterval = setInterval(pollPumpStatus, 5000); // Poll every 5s for faster sync
+    // Also poll device-control to check for command expiry (2-hour timeout safety)
+    const pollCommandState = async () => {
+      try {
+        const response = await fetch("/api/device-control?mode=sawah");
+        if (response.ok) {
+          const data = await response.json();
+          // IMPORTANT: If command is expired (age > 2 hours), database returns OFF
+          // This ensures UI button resets even if user forgets or manually set ON
+          if (data.command === "OFF" && isPumpOn) {
+            console.warn(
+              `[COMMAND] State expired (age: ${data.age_seconds}s), resetting UI to OFF`
+            );
+            setIsPumpOn(false);
+            setIsManualMode(false);
+          }
+        }
+      } catch (error) {
+        // Silent fail - this is just for safety monitoring
+        console.debug("[COMMAND] Expiry check error:", error);
+      }
+    };
+
+    const pollInterval = setInterval(() => {
+      pollPumpStatus();
+      pollCommandState();
+    }, 5000); // Poll every 5s for faster sync
+
     return () => clearInterval(pollInterval);
   }, [session?.user, isPumpOn]);
 
