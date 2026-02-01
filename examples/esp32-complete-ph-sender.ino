@@ -1,28 +1,36 @@
 // ============================================================================
-// ESP32 IoT Monitoring - Lengkap dengan Real Sensor & State-Based Control
+// ESP32 IoT Monitoring - TinyGsm + SIM800L + Real Sensor & State-Based Control
 // ============================================================================
 // Fitur:
-// 1. Baca sensor pH setiap 20 detik (real data)
-// 2. Kirim ke PHP bridge dengan signal_strength & pump_status real
-// 3. Tampilkan di LCD 16x2
-// 4. Poll command state dari database setiap 20 detik
-// 5. Kontrol relay pompa berdasarkan database state (tidak hardcoded)
-// 6. Monitor WiFi, signal strength, battery real
-// 7. Feedback validation (pump_status = GPIO state, bukan assumed)
+// 1. Koneksi GSM via SIM800L (bukan WiFi!)
+// 2. Baca sensor pH setiap 20 detik (real data)
+// 3. Kirim ke PHP bridge dengan signal_strength & pump_status real
+// 4. Tampilkan di LCD 16x2
+// 5. Poll command state dari database setiap 20 detik
+// 6. Kontrol relay pompa berdasarkan database state (tidak hardcoded)
+// 7. Monitor signal strength, battery real
+// 8. Feedback validation (pump_status = GPIO state, bukan assumed)
 // ============================================================================
 
-#include <WiFi.h>
-#include <HTTPClient.h>
+#define TINY_GSM_MODEM_SIM800    // Gunakan SIM800 library
+#define TINY_GSM_RX_BUFFER 1024  // Increase RX buffer for larger responses
+
+#include <TinyGsmClient.h>       // GSM Client (bukan WiFi!)
+#include <PubSubClient.h>        // MQTT (optional, untuk fallback)
 #include <Wire.h>
-#include <LiquidCrystal_I2C.h>  // Untuk LCD 16x2 I2C
+#include <LiquidCrystal_I2C.h>   // Untuk LCD 16x2 I2C
 #include <ArduinoJson.h>
-#include <driver/uart.h>  // Untuk SIM800L komunikasi
 
 // ============================================================================
-// KONFIGURASI WiFi
+// KONFIGURASI GSM / SIM800L
 // ============================================================================
-const char* SSID = "YOUR_WIFI_SSID";           // ← Ganti SSID WiFi
-const char* PASSWORD = "YOUR_WIFI_PASSWORD";    // ← Ganti password WiFi
+#define MODEM_RX 13              // RX dari SIM800L
+#define MODEM_TX 15              // TX ke SIM800L
+#define GSM_BAUD 9600            // SIM800L baud rate (jangan ganti!)
+
+const char* APN = "internet";    // ← GANTI SESUAI PROVIDER (indosatgprs, axis, smartfren, dll)
+const char* GSM_USER = "";       // Username APN (biasanya kosong)
+const char* GSM_PASS = "";       // Password APN (biasanya kosong)
 
 // ============================================================================
 // KONFIGURASI API & PHP BRIDGE
@@ -44,11 +52,16 @@ const char* LOCATION = "sawah";  // atau "kolam"
 #define WATER_LEVEL_PIN A1      // Pin analog untuk sensor level air (ADC1)
 #define RELAY_PIN 16            // GPIO16 untuk relay pompa
 #define BATTERY_PIN A3          // Pin analog untuk baca battery
-#define MODEM_RX 13             // RX dari SIM800L
-#define MODEM_TX 15             // TX ke SIM800L
 
 // LCD I2C: SDA=GPIO21, SCL=GPIO22
 LiquidCrystal_I2C lcd(0x27, 16, 2);  // Address 0x27, 16x2
+
+// GSM Serial (HardwareSerial)
+HardwareSerial SerialGSM(2);  // UART2 untuk SIM800L
+
+// TinyGsm client
+TinyGsm modem(SerialGSM);
+TinyGsmClient client(modem);
 
 // ============================================================================
 // KONSTANTA SENSOR CALIBRATION
@@ -57,7 +70,6 @@ const float PH_CALIBRATION_POINT_4 = 2.5;    // ADC value at pH 4.0
 const float PH_CALIBRATION_POINT_7 = 4.5;    // ADC value at pH 7.0
 const float BATTERY_VOLTAGE_MIN = 3.0;       // Min voltage (0%)
 const float BATTERY_VOLTAGE_MAX = 4.2;       // Max voltage (100%)
-const int SIGNAL_CHECK_INTERVAL = 60000;     // Check signal setiap 60 detik
 
 // ============================================================================
 // VARIABEL GLOBAL
@@ -91,8 +103,8 @@ void setup() {
   delay(1000);
 
   Serial.println("\n\n");
-  Serial.println("=== ESP32 IoT Monitoring - Sawah/Kolam ===");
-  Serial.println("Initializing...");
+  Serial.println("=== ESP32 IoT Monitoring GSM - Sawah/Kolam ===");
+  Serial.println("Initializing GSM modem...");
 
   // Setup pins
   pinMode(RELAY_PIN, OUTPUT);
@@ -103,15 +115,57 @@ void setup() {
   lcd.init();
   lcd.backlight();
   lcd.setCursor(0, 0);
-  lcd.print("IoT Monitor");
+  lcd.print("IoT GSM Monitor");
   lcd.setCursor(0, 1);
-  lcd.print("Initializing...");
+  lcd.print("Init GSM...");
   delay(2000);
 
-  // Setup WiFi
-  setupWiFi();
+  // Setup GSM Serial
+  SerialGSM.begin(GSM_BAUD, SERIAL_8N1, MODEM_RX, MODEM_TX);
+  delay(1000);
 
-  // Setup selesai
+  // Initialize GSM modem
+  Serial.println("[GSM] Initializing modem...");
+  if (!modem.init()) {
+    Serial.println("✗ GSM modem failed to initialize!");
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("GSM Init FAILED");
+    while (1) { delay(1000); }  // Halt if modem fails
+  }
+
+  Serial.println("✓ GSM modem initialized");
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("GSM Connected");
+  delay(1000);
+
+  // Get modem info
+  String modemInfo = modem.getModemInfo();
+  Serial.println("Modem: " + modemInfo);
+
+  // Unlock SIM if needed (PIN = "")
+  if (!modem.simUnlock("")) {
+    Serial.println("⚠ SIM unlock failed or already unlocked");
+  }
+
+  // Connect to GPRS
+  Serial.println("[GPRS] Connecting to APN: " + String(APN));
+  lcd.clear();
+  lcd.setCursor(0, 0);
+  lcd.print("GPRS Connect...");
+  lcd.setCursor(0, 1);
+  lcd.print(APN);
+
+  if (!modem.gprsConnect(APN, GSM_USER, GSM_PASS)) {
+    Serial.println("✗ GPRS failed to connect!");
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("GPRS FAILED");
+    while (1) { delay(1000); }  // Halt if GPRS fails
+  }
+
+  Serial.println("✓ GPRS connected!");
   displayReadyScreen();
   Serial.println("✓ Setup complete!\n");
 }
@@ -120,10 +174,12 @@ void setup() {
 // LOOP
 // ============================================================================
 void loop() {
-  // Monitor WiFi
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("⚠ WiFi disconnected, reconnecting...");
-    setupWiFi();
+  // Monitor GSM connection
+  if (!modem.isGprsConnected()) {
+    Serial.println("⚠ GPRS disconnected, reconnecting...");
+    if (modem.gprsConnect(APN, GSM_USER, GSM_PASS)) {
+      Serial.println("✓ GPRS reconnected");
+    }
   }
 
   unsigned long currentTime = millis();
@@ -147,7 +203,7 @@ void loop() {
     lastCommandCheckTime = currentTime;
   }
 
-  // Check signal strength setiap 60 detik (optional)
+  // Check signal strength setiap 60 detik
   if (currentTime - lastSignalCheckTime >= SIGNAL_CHECK_INTERVAL) {
     getSignalQuality();
     lastSignalCheckTime = currentTime;
@@ -157,39 +213,28 @@ void loop() {
 }
 
 // ============================================================================
-// FUNGSI: SETUP WiFi
+// FUNGSI: GET SIGNAL QUALITY (CSQ dari modem - Real GSM Signal)
 // ============================================================================
-void setupWiFi() {
-  Serial.println("[WiFi] Connecting to " + String(SSID));
-
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(SSID, PASSWORD);
-
-  int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 20) {
-    delay(500);
-    Serial.print(".");
-    attempts++;
-  }
-
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("\n✓ WiFi connected!");
-    Serial.println("IP: " + WiFi.localIP().toString());
-
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("WiFi: Connected");
-    lcd.setCursor(0, 1);
-    lcd.print("IP:" + WiFi.localIP().toString().substring(0, 15));
-    delay(2000);
-  } else {
-    Serial.println("\n✗ WiFi failed!");
-    lcd.clear();
-    lcd.setCursor(0, 0);
-    lcd.print("WiFi: FAILED");
-    lcd.setCursor(0, 1);
-    lcd.print("Check SSID/PW");
-  }
+int getSignalQuality() {
+  // Baca CSQ dari SIM800L
+  // AT+CSQ → +CSQ: <rssi>,<ber>
+  // rssi: 0-31 (0=weakest, 31=strongest, 99=unknown)
+  // ber: 0-7 (0=best, 7=worst, 99=unknown)
+  
+  int rssi = modem.getSignalQuality();
+  
+  // Map RSSI to CSQ
+  // RSSI = -113 + 2*CSQ dBm
+  // CSQ 0 = -113 dBm (very weak)
+  // CSQ 31 = -51 dBm (excellent)
+  signalStrength = rssi;
+  
+  Serial.print("[Signal] RSSI: ");
+  Serial.print(rssi);
+  Serial.print(" (0-31 scale, higher=better)");
+  Serial.println();
+  
+  return signalStrength;
 }
 
 // ============================================================================
@@ -318,52 +363,65 @@ int getSignalQuality() {
 // FUNGSI: KIRIM DATA KE PHP BRIDGE (State-Based Control)
 // ============================================================================
 void sendDataToPhpBridge() {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("[Bridge] WiFi not connected!");
+  if (!modem.isGprsConnected()) {
+    Serial.println("[Bridge] GPRS not connected!");
     return;
   }
 
-  HTTPClient http;
-  Serial.println("[Bridge] Sending sensor data to: " + String(PHP_BRIDGE_URL));
+  Serial.println("[Bridge] Connecting to PHP server...");
+  
+  // Parse URL untuk PHP bridge
+  // Format: http://your-server/input-enhanced.php
+  const char* SERVER_URL = "YOUR_SERVER";  // ← GANTI ke server address (tanpa http://)
+  const int PORT = 80;  // HTTP port
 
-  try {
-    http.begin(PHP_BRIDGE_URL);
-    http.addHeader("Content-Type", "application/x-www-form-urlencoded");
+  if (!client.connect(SERVER_URL, PORT)) {
+    Serial.println("✗ Failed to connect to server!");
+    return;
+  }
 
-    // Prepare payload dengan REAL sensor data
-    String payload = "";
-    payload += "device_id=" + String(DEVICE_ID);
-    payload += "&location=" + String(LOCATION);
-    payload += "&ph=" + String(currentPH, 2);
-    payload += "&water_level=" + String(currentWaterLevelPercent);
-    payload += "&battery=" + String(batteryPercent);
-    payload += "&signal_strength=" + String(signalStrength);  // CSQ real value
-    payload += "&pump_status=" + String(pumpStatus ? "1" : "0");  // GPIO state real
+  Serial.println("✓ Connected! Sending data...");
+
+  // Prepare POST request
+  String postData = "";
+  postData += "device_id=" + String(DEVICE_ID);
+  postData += "&location=" + String(LOCATION);
+  postData += "&ph=" + String(currentPH, 2);
+  postData += "&water_level=" + String(currentWaterLevelPercent);
+  postData += "&battery=" + String(batteryPercent);
+  postData += "&signal_strength=" + String(signalStrength);
+  postData += "&pump_status=" + String(pumpStatus ? "1" : "0");
+  
+  Serial.println("[Bridge] Payload: " + postData);
+
+  // Send HTTP POST request
+  client.print("POST /input-enhanced.php HTTP/1.1\r\n");
+  client.print("Host: " + String(SERVER_URL) + "\r\n");
+  client.print("Connection: close\r\n");
+  client.print("Content-Type: application/x-www-form-urlencoded\r\n");
+  client.print("Content-Length: " + String(postData.length()) + "\r\n");
+  client.print("\r\n");
+  client.print(postData);
+  client.print("\r\n");
+
+  // Wait for response
+  delay(500);
+
+  String response = "";
+  while (client.available()) {
+    response += (char)client.read();
+  }
+
+  client.stop();
+
+  if (response.length() > 0) {
+    Serial.println("✓ Response received!");
+    Serial.println("Response: " + response);
     
-    Serial.println("[Bridge] Payload: " + payload);
-
-    // Send POST
-    int httpResponseCode = http.POST(payload);
-
-    if (httpResponseCode == 200 || httpResponseCode == 201) {
-      Serial.println("✓ Data sent successfully! (Code: " + String(httpResponseCode) + ")");
-      
-      // Parse response untuk command
-      String response = http.getString();
-      Serial.println("Response: " + response);
-      
-      // Parse JSON response untuk command state
-      parseCommandFromResponse(response);
-    } else {
-      Serial.println("✗ Failed to send data. HTTP Code: " + String(httpResponseCode));
-      String response = http.getString();
-      Serial.println("Response: " + response);
-    }
-
-    http.end();
-  } catch (const std::exception& e) {
-    Serial.println("✗ Exception: " + String(e.what()));
-    http.end();
+    // Parse JSON dari response
+    parseCommandFromResponse(response);
+  } else {
+    Serial.println("✗ No response from server!");
   }
 }
 
@@ -416,36 +474,54 @@ void setRelay(int state) {
 // FUNGSI: CHECK COMMAND STATE (Poll dari API)
 // ============================================================================
 void checkCommandState() {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("[CommandCheck] WiFi not connected!");
+  if (!modem.isGprsConnected()) {
+    Serial.println("[CommandCheck] GPRS not connected!");
     return;
   }
 
-  HTTPClient http;
-  String urlWithParams = String(API_DEVICE_CONTROL_URL) + "?device_id=" + DEVICE_ID + "&mode=" + LOCATION;
-  
-  Serial.println("[CommandCheck] Polling: " + urlWithParams);
+  Serial.println("[CommandCheck] Polling command state...");
 
-  try {
-    http.begin(urlWithParams);
-    http.addHeader("Content-Type", "application/json");
+  const char* SERVER_URL = "YOUR_DOMAIN";  // ← GANTI domain/IP
+  const int PORT = 443;  // HTTPS port (atau 80 untuk HTTP)
 
-    int httpResponseCode = http.GET();
+  // Build query URL
+  String urlPath = "/api/device-control?device_id=" + String(DEVICE_ID) + "&mode=" + String(LOCATION);
 
-    if (httpResponseCode == 200) {
-      String response = http.getString();
-      Serial.println("✓ Command state received!");
-      Serial.println("Response: " + response);
-      
-      parseCommandFromResponse(response);
-    } else {
-      Serial.println("✗ Failed to check command. HTTP Code: " + String(httpResponseCode));
-    }
+  if (!client.connect(SERVER_URL, PORT)) {
+    Serial.println("✗ Failed to connect to API server!");
+    return;
+  }
 
-    http.end();
-  } catch (const std::exception& e) {
-    Serial.println("✗ Exception: " + String(e.what()));
-    http.end();
+  Serial.println("✓ Connected to API! Requesting state...");
+
+  // Send HTTP GET request
+  client.print("GET " + urlPath + " HTTP/1.1\r\n");
+  client.print("Host: " + String(SERVER_URL) + "\r\n");
+  client.print("Connection: close\r\n");
+  client.print("Content-Type: application/json\r\n");
+  client.print("\r\n");
+
+  // Wait for response
+  delay(500);
+
+  String response = "";
+  bool bodyStart = false;
+  while (client.available()) {
+    char c = (char)client.read();
+    
+    // Skip headers, get only JSON body
+    if (c == '{') bodyStart = true;
+    if (bodyStart) response += c;
+  }
+
+  client.stop();
+
+  if (response.length() > 0) {
+    Serial.println("✓ Command state received!");
+    Serial.println("Response: " + response);
+    parseCommandFromResponse(response);
+  } else {
+    Serial.println("✗ No response from API!");
   }
 }
 
@@ -478,15 +554,15 @@ void updateLCD() {
       lcd.print("%");
       break;
 
-    case 1: // Display WiFi & Signal
-      lcd.print("WiFi: ");
-      if (WiFi.status() == WL_CONNECTED) {
+    case 1: // Display GPRS & Signal
+      lcd.print("GPRS: ");
+      if (modem.isGprsConnected()) {
         lcd.print("OK");
       } else {
         lcd.print("OFF");
       }
       lcd.setCursor(0, 1);
-      lcd.print("Signal CSQ:");
+      lcd.print("Signal RSSI:");
       lcd.print(signalStrength);
       break;
 
@@ -534,20 +610,19 @@ void controlRelay(bool state) {
 // DEBUG: Print system info
 // ============================================================================
 void printSystemInfo() {
-  Serial.println("\n=== System Info ===");
-  Serial.println("WiFi SSID: " + String(SSID));
+  Serial.println("\n=== System Info (GSM/GPRS) ===");
   Serial.println("Device ID: " + String(DEVICE_ID));
   Serial.println("Location: " + String(LOCATION));
-  Serial.println("PHP Bridge URL: " + String(PHP_BRIDGE_URL));
-  Serial.println("API Control URL: " + String(API_DEVICE_CONTROL_URL));
+  Serial.println("GSM APN: " + String(APN));
+  Serial.println("PHP Bridge URL: http://YOUR_SERVER/input-enhanced.php");
+  Serial.println("API Control URL: https://YOUR_DOMAIN/api/device-control");
   Serial.println("\n=== Current Sensor Values ===");
   Serial.println("pH: " + String(currentPH, 2));
   Serial.println("Water Level: " + String(currentWaterLevelPercent) + "%");
   Serial.println("Battery: " + String(batteryPercent) + "%");
-  Serial.println("Signal CSQ: " + String(signalStrength));
+  Serial.println("Signal RSSI: " + String(signalStrength) + " (higher=better)");
   Serial.println("Pump Status: " + String(pumpStatus ? "ON" : "OFF"));
   Serial.println("Last Command: " + lastCommandReceived);
-  Serial.println("WiFi Status: " + String(WiFi.status() == WL_CONNECTED ? "Connected" : "Disconnected"));
-  Serial.println("IP Address: " + WiFi.localIP().toString());
+  Serial.println("GPRS Status: " + String(modem.isGprsConnected() ? "Connected" : "Disconnected"));
   Serial.println("===================\n");
 }
