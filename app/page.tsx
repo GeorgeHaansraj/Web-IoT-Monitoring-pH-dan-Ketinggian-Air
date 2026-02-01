@@ -150,7 +150,7 @@ export default function Dashboard() {
     fetchPumpStatus();
   }, [session?.user]);
 
-  // FEATURE: Realtime polling pump status every 10s to sync UI with DB
+  // FEATURE: Realtime polling pump status every 5s to sync UI with DB and all users
   useEffect(() => {
     if (!session?.user) return;
 
@@ -174,7 +174,7 @@ export default function Dashboard() {
       }
     };
 
-    const pollInterval = setInterval(pollPumpStatus, 10000); // Poll every 10s
+    const pollInterval = setInterval(pollPumpStatus, 5000); // Poll every 5s for faster sync
     return () => clearInterval(pollInterval);
   }, [session?.user, isPumpOn]);
 
@@ -190,6 +190,7 @@ export default function Dashboard() {
       setRssi(possibleRssi[Math.floor(Math.random() * possibleRssi.length)]);
     }, 10000);
     return () => clearInterval(interval);
+  }, []);
   }, []);
 
   // Handle page unload for manual mode pump auto-OFF

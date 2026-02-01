@@ -145,7 +145,7 @@ export default function AdminPage() {
     fetchPumpStatus();
   }, [session?.user]);
 
-  // FEATURE: Realtime polling pump status every 10s to sync UI with DB
+  // FEATURE: Realtime polling pump status every 5s to sync UI with DB and all users
   useEffect(() => {
     if (!session?.user) return;
 
@@ -170,7 +170,7 @@ export default function AdminPage() {
       }
     };
 
-    const pollInterval = setInterval(pollPumpStatus, 10000); // Poll every 10s
+    const pollInterval = setInterval(pollPumpStatus, 5000); // Poll every 5s for faster sync
     return () => clearInterval(pollInterval);
   }, [session?.user, isPumpOn]);
 
