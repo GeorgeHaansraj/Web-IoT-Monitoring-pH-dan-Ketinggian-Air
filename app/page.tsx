@@ -297,6 +297,36 @@ export default function Dashboard() {
     return "#16A34A";
   };
 
+  // Determine Kolam Ikan block color based on pH
+  const getKolamBlockColor = (ph: number): { border: string; bg: string } => {
+    if (ph < 4.0 || ph > 9.5) {
+      // Danger - Red
+      return { border: "border-red-400", bg: "bg-red-100" };
+    } else if ((ph >= 4.0 && ph < 6.5) || (ph > 8.5 && ph <= 9.5)) {
+      // Warning - Orange/Yellow
+      return { border: "border-yellow-400", bg: "bg-yellow-50" };
+    } else {
+      // Optimal - Green
+      return { border: "border-green-400", bg: "bg-green-50" };
+    }
+  };
+
+  // Function to determine Sawah Padi block color based on pH
+  const getSawahBlockColor = (ph: number): { border: string; bg: string } => {
+    if (ph < 4.5 || ph > 8.0) {
+      // Danger/Warning - Red or Orange
+      return ph > 8.0
+        ? { border: "border-orange-400", bg: "bg-orange-50" }
+        : { border: "border-red-400", bg: "bg-red-100" };
+    } else if ((ph >= 4.5 && ph < 5.5) || (ph > 7.0 && ph <= 8.0)) {
+      // Caution - Yellow/Orange
+      return { border: "border-yellow-400", bg: "bg-yellow-50" };
+    } else {
+      // Optimal - Green
+      return { border: "border-green-400", bg: "bg-green-50" };
+    }
+  };
+
   // Function to determine RSSI status based on CSQ value
   const getRssiStatus = (
     csq: number,
@@ -590,6 +620,160 @@ export default function Dashboard() {
             >
               {isOnline ? "Online" : "Offline"}
             </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Status Lahan Section */}
+      <div className="bg-white rounded-lg shadow-md p-6 border border-gray-100">
+        <div className="flex items-center gap-2 mb-6">
+          <span className="text-2xl">🌍</span>
+          <h2 className="text-xl font-semibold">Status Lahan</h2>
+        </div>
+
+        <div className="space-y-4">
+          {/* KOLAM IKAN Block */}
+          <div
+            className={`border-2 rounded-lg p-5 ${getKolamBlockColor(currentPH).border} ${getKolamBlockColor(currentPH).bg}`}
+          >
+            <h3 className="text-lg font-bold text-blue-900 mb-4">
+              🏞️ Kolam Ikan
+            </h3>
+
+            {/* Determine Kolam status and recommendations */}
+            {currentPH < 4.0 ? (
+              <div className="space-y-3">
+                <div className="bg-red-100 border border-red-300 rounded p-3">
+                  <p className="text-sm font-bold text-red-700 mt-1">
+                    Bahaya: Ikan Mati
+                  </p>
+                  <p className="text-sm text-red-800 mt-2">
+                    💡 <span className="font-semibold">Tindakan:</span> Kuras &
+                    Ganti Air Total
+                  </p>
+                </div>
+              </div>
+            ) : currentPH >= 4.0 && currentPH < 6.5 ? (
+              <div className="space-y-3">
+                <div className="bg-yellow-100 border border-yellow-300 rounded p-3">
+                  <p className="text-sm font-bold text-yellow-700 mt-1">
+                    Air Asam
+                  </p>
+                  <p className="text-sm text-yellow-800 mt-2">
+                    💡 <span className="font-semibold">Tindakan:</span> Lakukan
+                    Pengapuran
+                  </p>
+                </div>
+              </div>
+            ) : currentPH >= 6.5 && currentPH <= 8.5 ? (
+              <div className="space-y-3">
+                <div className="bg-green-100 border border-green-300 rounded p-3">
+                  <p className="text-sm font-bold text-green-700 mt-1">
+                    ✓ pH Optimal
+                  </p>
+                  <p className="text-sm text-green-800 mt-2">
+                    💡 <span className="font-semibold">Tindakan:</span>{" "}
+                    Pertahankan Kondisi
+                  </p>
+                </div>
+              </div>
+            ) : currentPH > 8.5 && currentPH <= 9.5 ? (
+              <div className="space-y-3">
+                <div className="bg-orange-100 border border-orange-300 rounded p-3">
+                  <p className="text-sm font-bold text-orange-700 mt-1">
+                    Air Basa
+                  </p>
+                  <p className="text-sm text-orange-800 mt-2">
+                    💡 <span className="font-semibold">Tindakan:</span> Tambah
+                    Air Tawar
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="bg-red-100 border border-red-300 rounded p-3">
+                  <p className="text-sm font-bold text-red-700 mt-1">
+                    Bahaya: Ikan Stres
+                  </p>
+                  <p className="text-sm text-red-800 mt-2">
+                    💡 <span className="font-semibold">Tindakan:</span>{" "}
+                    Netralisir Segera
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* SAWAH PADI Block */}
+          <div
+            className={`border-2 rounded-lg p-5 ${getSawahBlockColor(currentPH).border} ${getSawahBlockColor(currentPH).bg}`}
+          >
+            <h3 className="text-lg font-bold text-green-900 mb-4">
+              🌾 Sawah Padi
+            </h3>
+
+            {/* Determine Sawah status and recommendations */}
+            {currentPH < 4.5 ? (
+              <div className="space-y-3">
+                <div className="bg-red-100 border border-red-300 rounded p-3">
+                  <p className="text-sm font-bold text-red-700 mt-1">
+                    Sangat Asam
+                  </p>
+                  <p className="text-sm text-red-800 mt-2">
+                    💡 <span className="font-semibold">Tindakan:</span> Kapur
+                    Dosis Tinggi
+                  </p>
+                </div>
+              </div>
+            ) : currentPH >= 4.5 && currentPH < 5.5 ? (
+              <div className="space-y-3">
+                <div className="bg-orange-100 border border-orange-300 rounded p-3">
+                  <p className="text-sm font-bold text-orange-700 mt-1">
+                    Kurang Subur
+                  </p>
+                  <p className="text-sm text-orange-800 mt-2">
+                    💡 <span className="font-semibold">Tindakan:</span> Tabur
+                    Dolomit
+                  </p>
+                </div>
+              </div>
+            ) : currentPH >= 5.5 && currentPH <= 7.0 ? (
+              <div className="space-y-3">
+                <div className="bg-green-100 border border-green-300 rounded p-3">
+                  <p className="text-sm font-bold text-green-700 mt-1">
+                    ✓ pH Optimal
+                  </p>
+                  <p className="text-sm text-green-800 mt-2">
+                    💡 <span className="font-semibold">Tindakan:</span> Lanjut
+                    Pemupukan
+                  </p>
+                </div>
+              </div>
+            ) : currentPH > 7.0 && currentPH <= 8.0 ? (
+              <div className="space-y-3">
+                <div className="bg-yellow-100 border border-yellow-300 rounded p-3">
+                  <p className="text-sm font-bold text-yellow-700 mt-1">
+                    Sedikit Basa
+                  </p>
+                  <p className="text-sm text-yellow-800 mt-2">
+                    💡 <span className="font-semibold">Tindakan:</span> Beri
+                    Pupuk ZA
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="bg-orange-100 border border-orange-300 rounded p-3">
+                  <p className="text-sm font-bold text-orange-700 mt-1">
+                    Terlalu Basa
+                  </p>
+                  <p className="text-sm text-orange-800 mt-2">
+                    💡 <span className="font-semibold">Tindakan:</span> Drainase
+                    & Cuci Lahan
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
