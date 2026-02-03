@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, User, Phone, Lock, ShieldCheck } from "lucide-react";
+import { ArrowLeft, User, Phone, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,14 +15,12 @@ import {
   CardTitle,
   CardDescription,
 } from "@/components/ui/card";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 export default function SignUpPage() {
   const router = useRouter();
   const [formData, setFormData] = useState({
     nama: "",
     noTelp: "",
-    role: "sawah",
     username: "",
     password: "",
     confirmPassword: "",
@@ -57,7 +55,6 @@ export default function SignUpPage() {
         body: JSON.stringify({
           nama: formData.nama,
           noTelp: formData.noTelp,
-          role: formData.role,
           username: formData.username,
           password: formData.password,
         }),
@@ -135,39 +132,7 @@ export default function SignUpPage() {
               </div>
             </div>
 
-            {/* 3. Hak Akses (Hanya satu opsi) */}
-            <div className="space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-100">
-              <Label className="text-blue-600 font-bold flex items-center gap-2">
-                <ShieldCheck className="w-4 h-4" /> Pilih Hak Akses
-              </Label>
-              <RadioGroup
-                value={formData.role}
-                onValueChange={(val: string) =>
-                  setFormData({ ...formData, role: val })
-                }
-              >
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="sawah" id="r1" />
-                  <Label htmlFor="r1" className="cursor-pointer">
-                    Akses Sawah
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="kolam" id="r2" />
-                  <Label htmlFor="r2" className="cursor-pointer">
-                    Akses Kolam
-                  </Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="admin" id="r3" />
-                  <Label htmlFor="r3" className="cursor-pointer">
-                    Admin (Akses Penuh)
-                  </Label>
-                </div>
-              </RadioGroup>
-            </div>
-
-            {/* 4. Username */}
+            {/* 3. Username */}
             <div className="space-y-2">
               <Label htmlFor="username">Username</Label>
               <Input
@@ -181,7 +146,7 @@ export default function SignUpPage() {
               />
             </div>
 
-            {/* 5 & 6. Password */}
+            {/* 4 & 5. Password */}
             <div className="grid grid-cols-2 gap-3">
               <PasswordInput
                 id="pass"

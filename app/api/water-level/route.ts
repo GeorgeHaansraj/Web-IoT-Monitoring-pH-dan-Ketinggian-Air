@@ -6,6 +6,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get("limit") || "100");
 
+<<<<<<< HEAD
     // Location filtering removed as field is deleted
     const readings = await prisma.waterLevelReading.findMany({
       orderBy: { timestamp: "desc" },
@@ -13,6 +14,31 @@ export async function GET(request: NextRequest) {
     });
 
     return NextResponse.json(readings);
+=======
+    // Try to fetch water level readings dari monitoring_logs
+    // If table doesn't exist or query fails, return empty array
+    try {
+      const readings = await prisma.monitoringLog.findMany({
+        where: {
+          level: {
+            not: null,
+          },
+        },
+        orderBy: { created_at: "desc" },
+        take: limit,
+      });
+      return NextResponse.json(readings);
+    } catch (dbError: any) {
+      // If table doesn't exist, return empty array instead of error
+      if (dbError?.code === "P2021" || dbError?.code === "P2022") {
+        console.warn(
+          "[WATER-LEVEL] Database table not found, returning empty array",
+        );
+        return NextResponse.json([]);
+      }
+      throw dbError;
+    }
+>>>>>>> 4f2e4b791db4bbf99f0e54520b95e0a49a52380f
   } catch (error) {
     console.error("Error fetching water level readings:", error);
     return NextResponse.json(

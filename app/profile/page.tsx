@@ -1,29 +1,22 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSession, signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   User,
-  Shield,
   LogOut,
-  Briefcase,
-  PhoneCall,
-  Contact2Icon,
-  Bell,
   Lock,
-  Eye,
   Check,
   X,
-  MailIcon,
-  Microchip,
-  History,
-  AlertCircle,
+  Power,
+  FlaskConical,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import PasswordInput from "@/components/PasswordInput";
+import PHHistoryGraph from "@/components/PHHistoryGraph";
 import {
   Dialog,
   DialogContent,
@@ -33,13 +26,15 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 
 export default function ProfilePage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const [openPasswordDialog, setOpenPasswordDialog] = useState(false);
-  const [openNotificationDialog, setOpenNotificationDialog] = useState(false);
+  const [showPumpHistory, setShowPumpHistory] = useState(false);
+  const [showPhHistory, setShowPhHistory] = useState(false);
+  const [pumpHistory, setPumpHistory] = useState<any[]>([]);
+  const [pumpHistoryLoading, setPumpHistoryLoading] = useState(false);
   const [passwords, setPasswords] = useState({
     current: "",
     new: "",
@@ -47,16 +42,91 @@ export default function ProfilePage() {
   });
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState(false);
-  const [notifications, setNotifications] = useState({
-    email: true,
-    sms: false,
-    push: true,
-  });
-  const [showPrivacyDialog, setShowPrivacyDialog] = useState(false);
-  const [privacy, setPrivacy] = useState({
-    profilePublic: false,
-    twoFactorEnabled: false,
-  });
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  // Fetch pump history when modal opens
+  useEffect(() => {
+    if (showPumpHistory && pumpHistory.length === 0) {
+      fetchPumpHistory();
+    }
+  }, [showPumpHistory]);
+
+  const fetchPumpHistory = async () => {
+    setPumpHistoryLoading(true);
+    try {
+      const response = await fetch(
+        "/api/pump-history?mode=sawah&limit=20&offset=0",
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setPumpHistory(data.data || []);
+      }
+    } catch (error) {
+      console.error("Error fetching pump history:", error);
+    } finally {
+      setPumpHistoryLoading(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    // Validasi input lokal
+    if (!passwords.current || !passwords.new || !passwords.confirm) {
+      setPasswordError("Semua field harus diisi");
+      return;
+    }
+    if (passwords.new !== passwords.confirm) {
+      setPasswordError("Sandi baru tidak cocok");
+      return;
+    }
+    if (passwords.new.length < 6) {
+      setPasswordError("Sandi baru harus minimal 6 karakter");
+      return;
+    }
+
+    // Prevent double submit
+    if (isChangingPassword) return;
+
+    setIsChangingPassword(true);
+    setPasswordError("");
+
+    try {
+      // Call API untuk change password
+      const response = await fetch("/api/user/change-password", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          currentPassword: passwords.current,
+          newPassword: passwords.new,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        setPasswordError(data.error || "Gagal mengubah sandi");
+        return;
+      }
+
+      // Success
+      setPasswordError("");
+      setPasswordSuccess(true);
+      console.log("[SECURITY] Password berhasil diubah");
+
+      // Reset form dan close dialog setelah 2 detik
+      setTimeout(() => {
+        setOpenPasswordDialog(false);
+        setPasswords({ current: "", new: "", confirm: "" });
+        setPasswordSuccess(false);
+      }, 2000);
+    } catch (error) {
+      console.error("Error changing password:", error);
+      setPasswordError("Terjadi kesalahan saat mengubah sandi");
+    } finally {
+      setIsChangingPassword(false);
+    }
+  };
 
   if (status === "loading") {
     return (
@@ -100,53 +170,14 @@ export default function ProfilePage() {
       <div className="space-y-3">
         <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
           <div className="bg-blue-50 p-2 rounded-lg">
-            <Shield className="w-5 h-5 text-blue-600" />
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-500 uppercase font-bold">
-              Hak Akses
-            </p>
-            <p className="text-sm font-semibold text-gray-700 capitalize">
-              Pemilik {user?.role || "Umum"}
-            </p>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="bg-green-50 p-2 rounded-lg">
-            <Contact2Icon className="w-5 h-5 text-green-600" />
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-500 uppercase font-bold">
-              Nomor Telepon
-            </p>
-            <p className="text-sm font-semibold text-gray-700">
-              {user?.phone || "082379238544"}
-            </p>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="bg-red-50 p-2 rounded-lg">
-            <MailIcon className="w-5 h-5 text-red-400" />
+            <User className="w-5 h-5 text-blue-600" />
           </div>
           <div>
             <p className="text-[10px] text-gray-500 uppercase font-bold">
               Email
             </p>
             <p className="text-sm font-semibold text-gray-700">
-              {user?.email || "georgehaansraj@example.com"}
-            </p>
-          </div>
-        </div>
-        <div className="bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center gap-4">
-          <div className="bg-gray-100 p-2 rounded-lg">
-            <Microchip className="w-5 h-5 text-gray-500" />
-          </div>
-          <div>
-            <p className="text-[10px] text-gray-500 uppercase font-bold">
-              ID Perangkat
-            </p>
-            <p className="text-sm font-semibold text-gray-700">
-              {user?.email || "001AC4012B3C"}
+              {user?.email || "user@example.com"}
             </p>
           </div>
         </div>
@@ -156,42 +187,42 @@ export default function ProfilePage() {
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-gray-700 px-1">Pengaturan</h3>
 
-        {/* Notifikasi */}
+        {/* Riwayat Pompa */}
         <button
-          onClick={() => setOpenNotificationDialog(true)}
+          onClick={() => setShowPumpHistory(true)}
           className="w-full bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition"
         >
           <div className="flex items-center gap-4">
-            <div className="bg-orange-50 p-2 rounded-lg">
-              <AlertCircle className="w-5 h-5 text-orange-600" />
+            <div className="bg-cyan-50 p-2 rounded-lg">
+              <Power className="w-5 h-5 text-cyan-600" />
             </div>
             <div className="text-left">
               <p className="text-xs text-gray-500 uppercase font-bold">
-                Konfigurasi Ambang Batas
+                Riwayat Pompa
               </p>
               <p className="text-sm font-semibold text-gray-700">
-                Kelola Ambang Batas pH dan Level Air
+                Lihat Aktivasi Pompa Terakhir
               </p>
             </div>
           </div>
           <ArrowLeft className="w-4 h-4 text-gray-400 rotate-180" />
         </button>
 
-        {/* Privasi & Keamanan */}
+        {/* Riwayat pH */}
         <button
-          onClick={() => setShowPrivacyDialog(true)}
+          onClick={() => setShowPhHistory(true)}
           className="w-full bg-white p-4 rounded-xl shadow-sm border border-gray-100 flex items-center justify-between hover:bg-gray-50 transition"
         >
           <div className="flex items-center gap-4">
-            <div className="bg-indigo-50 p-2 rounded-lg">
-              <History className="w-5 h-5 text-indigo-600" />
+            <div className="bg-purple-50 p-2 rounded-lg">
+              <FlaskConical className="w-5 h-5 text-purple-600" />
             </div>
             <div className="text-left">
               <p className="text-xs text-gray-500 uppercase font-bold">
-                Log Operasional
+                Riwayat pH
               </p>
               <p className="text-sm font-semibold text-gray-700">
-                Lihat Riwayat Aktivasi Pompa dan Log Error
+                Lihat Grafik Perubahan pH
               </p>
             </div>
           </div>
@@ -267,7 +298,6 @@ export default function ProfilePage() {
           </div>
           <DialogFooter>
             <Button
-              variant="outline"
               onClick={() => {
                 setOpenPasswordDialog(false);
                 setPasswords({ current: "", new: "", confirm: "" });
@@ -278,163 +308,96 @@ export default function ProfilePage() {
               Batal
             </Button>
             <Button
-              onClick={() => {
-                if (
-                  !passwords.current ||
-                  !passwords.new ||
-                  !passwords.confirm
-                ) {
-                  setPasswordError("Semua field harus diisi");
-                  return;
-                }
-                if (passwords.new !== passwords.confirm) {
-                  setPasswordError("Sandi baru tidak cocok");
-                  return;
-                }
-                if (passwords.new.length < 6) {
-                  setPasswordError("Sandi baru harus minimal 6 karakter");
-                  return;
-                }
-                setPasswordError("");
-                setPasswordSuccess(true);
-                setTimeout(() => {
-                  setOpenPasswordDialog(false);
-                  setPasswords({ current: "", new: "", confirm: "" });
-                  setPasswordSuccess(false);
-                }, 2000);
-              }}
+              onClick={handleChangePassword}
+              disabled={isChangingPassword}
             >
-              Ubah Sandi
+              {isChangingPassword ? "Mengubah..." : "Ubah Sandi"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Notifikasi */}
-      <Dialog
-        open={openNotificationDialog}
-        onOpenChange={setOpenNotificationDialog}
-      >
-        <DialogContent className="max-w-sm">
+      {/* Dialog Riwayat pH */}
+      <Dialog open={showPhHistory} onOpenChange={setShowPhHistory}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>Kelola Notifikasi</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <FlaskConical className="w-5 h-5 text-purple-600" />
+              Riwayat pH
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p className="font-medium text-sm text-gray-700">
-                  Notifikasi Email
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Terima update via email
-                </p>
-              </div>
-              <Switch
-                checked={notifications.email}
-                onCheckedChange={(checked) =>
-                  setNotifications({ ...notifications, email: checked })
-                }
-              />
-            </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p className="font-medium text-sm text-gray-700">
-                  Notifikasi SMS
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Terima update via SMS
-                </p>
-              </div>
-              <Switch
-                checked={notifications.sms}
-                onCheckedChange={(checked) =>
-                  setNotifications({ ...notifications, sms: checked })
-                }
-              />
-            </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p className="font-medium text-sm text-gray-700">
-                  Notifikasi Push
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Terima update via aplikasi
-                </p>
-              </div>
-              <Switch
-                checked={notifications.push}
-                onCheckedChange={(checked) =>
-                  setNotifications({ ...notifications, push: checked })
-                }
-              />
-            </div>
+          <div className="flex-1 overflow-y-auto py-4 w-full">
+            <PHHistoryGraph />
           </div>
           <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setOpenNotificationDialog(false)}
-            >
+            <Button onClick={() => setShowPhHistory(false)} className="w-full">
               Tutup
-            </Button>
-            <Button
-              onClick={() => {
-                setOpenNotificationDialog(false);
-              }}
-            >
-              Simpan
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Dialog Privasi & Keamanan */}
-      <Dialog open={showPrivacyDialog} onOpenChange={setShowPrivacyDialog}>
-        <DialogContent className="max-w-sm">
+      {/* Dialog Riwayat Pompa */}
+      <Dialog open={showPumpHistory} onOpenChange={setShowPumpHistory}>
+        <DialogContent className="max-w-sm max-h-96 overflow-hidden flex flex-col">
           <DialogHeader>
-            <DialogTitle>Pengaturan Privasi & Keamanan</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Power className="w-5 h-5 text-cyan-600" />
+              Riwayat Aktivasi Pompa
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p className="font-medium text-sm text-gray-700">
-                  Profil Publik
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Biarkan orang lain melihat profil Anda
-                </p>
+          <div className="flex-1 overflow-y-auto space-y-2 py-4">
+            {pumpHistoryLoading ? (
+              <div className="text-center py-8 text-gray-500">
+                Memuat riwayat pompa...
               </div>
-              <Switch
-                checked={privacy.profilePublic}
-                onCheckedChange={(checked) =>
-                  setPrivacy({ ...privacy, profilePublic: checked })
-                }
-              />
-            </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div>
-                <p className="font-medium text-sm text-gray-700">
-                  Autentikasi Dua Faktor
-                </p>
-                <p className="text-xs text-gray-500 mt-1">
-                  Tingkatkan keamanan akun Anda
-                </p>
+            ) : pumpHistory.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                Belum ada riwayat aktivasi pompa
               </div>
-              <Switch
-                checked={privacy.twoFactorEnabled}
-                onCheckedChange={(checked) =>
-                  setPrivacy({ ...privacy, twoFactorEnabled: checked })
-                }
-              />
-            </div>
+            ) : (
+              pumpHistory.map((entry, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 bg-gray-50 rounded-lg border border-gray-200"
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-medium text-sm text-gray-700">
+                      {entry.newState ? (
+                        <span className="inline-flex items-center gap-1 text-green-600">
+                          <Power className="w-3 h-3" /> Dihidupkan
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-red-600">
+                          <Power className="w-3 h-3" /> Dimatikan
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {entry.changedBy}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500">
+                    {new Date(entry.timestamp).toLocaleString("id-ID", {
+                      dateStyle: "short",
+                      timeStyle: "short",
+                    })}
+                  </div>
+                  <div className="text-xs text-gray-400 mt-1">
+                    dari {entry.previousState ? "ON" : "OFF"} ke{" "}
+                    {entry.newState ? "ON" : "OFF"}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
           <DialogFooter>
             <Button
-              variant="outline"
-              onClick={() => setShowPrivacyDialog(false)}
+              onClick={() => setShowPumpHistory(false)}
+              className="w-full"
             >
               Tutup
             </Button>
-            <Button onClick={() => setShowPrivacyDialog(false)}>Simpan</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

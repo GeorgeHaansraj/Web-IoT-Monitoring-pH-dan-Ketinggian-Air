@@ -9,7 +9,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <body>
         {/* Bungkus seluruh aplikasi dengan SessionProvider */}
         <NextAuthProvider>{children}</NextAuthProvider>

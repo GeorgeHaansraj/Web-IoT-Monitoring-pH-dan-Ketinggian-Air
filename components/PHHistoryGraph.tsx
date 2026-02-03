@@ -15,56 +15,63 @@ import { format } from "date-fns";
 
 type TimeRange = "hour" | "day" | "month" | "year";
 
-interface MonitoringLog {
-  id: number;
-  ph_value: string | number;
-  created_at: string;
-}
+type PhDataPoint = {
+  timestamp: string;
+  label: string;
+  ph: number;
+  min: number;
+  max: number;
+  count: number;
+};
 
 export default function PHHistoryGraph() {
   const [range, setRange] = useState<TimeRange>("hour");
-  const [data, setData] = useState<{ t: string; ph: number }[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<PhDataPoint[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
+  // Fetch data whenever range changes
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        // Fetch data based on range (simplified logic: fetch latest 100 for now)
-        // Ideally pass range to API to filter by date
-        const limitMap = {
-          hour: 24,
-          day: 7, // Fetching limited points for demo, real implementation needs aggregation
-          month: 30,
-          year: 12,
-        };
-
-        const limit = 100; // Fetch enough history
-        const response = await fetch(`/api/ph?limit=${limit}`);
-        if (!response.ok) throw new Error("Failed to fetch data");
-
-        const result: MonitoringLog[] = await response.json();
-
-        // Transform data
-        // Sort by time ascending for graph
-        const sortedData = result.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
-
-        const formattedData = sortedData.map(item => ({
-          t: format(new Date(item.created_at), "HH:mm"), // Default format
-          ph: Number(item.ph_value),
-          originalDate: new Date(item.created_at)
-        }));
-
-        setData(formattedData);
-      } catch (error) {
-        console.error("Error fetching graph data:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    fetchPhHistory();
   }, [range]);
+
+  const fetchPhHistory = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/ph-history?range=${range}&limit=100`);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: Failed to fetch pH history`);
+      }
+
+      const result = await response.json();
+      console.log(
+        `[PH-HISTORY] Fetched ${result.dataPoints} data points for ${range}:`,
+        result.data,
+      );
+
+      // Format data untuk chart
+      const formattedData = result.data.map((point: PhDataPoint) => ({
+        ...point,
+        t: point.label,
+      }));
+
+      if (formattedData.length === 0) {
+        console.warn(
+          `[PH-HISTORY] No data points available for range: ${range}`,
+        );
+      }
+
+      setData(formattedData);
+    } catch (err) {
+      console.error("[PH-HISTORY] Error fetching data:", err);
+      setError(err instanceof Error ? err.message : "Unknown error");
+      setData([]); // Set empty array instead of dummy data
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /**
    * LOGIKA LEBAR DINAMIS:
@@ -97,8 +104,8 @@ export default function PHHistoryGraph() {
             key={r}
             onClick={() => setRange(r)}
             className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all uppercase ${range === r
-                ? "bg-white text-blue-600 shadow-sm"
-                : "text-slate-500 hover:text-slate-700"
+              ? "bg-white text-blue-600 shadow-sm"
+              : "text-slate-500 hover:text-slate-700"
               }`}
           >
             {r === "hour"
@@ -115,23 +122,46 @@ export default function PHHistoryGraph() {
       {/* Kontainer Scroll */}
       <div className="w-full overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
         <div style={{ minWidth: getMinWidth() }}>
-          <div className="h-[280px] w-full">
-            {loading ? (
-              <div className="flex items-center justify-center h-full text-gray-400">
-                Memuat data...
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart
-                  data={data}
-                  margin={{ left: -10, right: 30, bottom: 20 }}
-                >
-                  <defs>
-                    <linearGradient id="colorPh" x1="0" y1="0" x2="0" y2="1">
+<<<<<<< HEAD
+  <div className="h-[280px] w-full">
+    {loading ? (
+      <div className="flex items-center justify-center h-full text-gray-400">
+        Memuat data...
+=======
+          <div className="h-96 w-full">
+          {loading ? (
+            <div className="flex items-center justify-center h-full text-slate-400">
+              <span>Memuat data pH...</span>
+            </div>
+          ) : error ? (
+            <div className="flex items-center justify-center h-full text-red-500">
+              <span>Error: {error}</span>
+            </div>
+          ) : data.length === 0 ? (
+            <div className="flex items-center justify-center h-full text-slate-400">
+              <span>Belum ada data pH tersedia</span>
+>>>>>>> 4f2e4b791db4bbf99f0e54520b95e0a49a52380f
+            </div>
+          ) : (
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart
+                data={data}
+                margin={{ left: -10, right: 30, bottom: 20 }}
+              >
+                <defs>
+                  <linearGradient id="colorPh" x1="0" y1="0" x2="0" y2="1">
+<<<<<<< HEAD
                       <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
+=======
+                      <stop
+                        offset="5%"
+                        stopColor="#3b82f6"
+                        stopOpacity={0.15}
+                      />
+>>>>>>> 4f2e4b791db4bbf99f0e54520b95e0a49a52380f
                       <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
+                    </linearGradient >
+                  </defs >
                   <CartesianGrid
                     strokeDasharray="3 3"
                     vertical={true}
@@ -166,6 +196,15 @@ export default function PHHistoryGraph() {
                       fontSize: "12px",
                       padding: "12px",
                     }}
+<<<<<<< HEAD
+=======
+                    formatter={(value: any, name: string | undefined) => {
+                      if (name === "ph") {
+                        return [value.toFixed(2), "Rata-rata pH"];
+                      }
+                      return [value, name];
+                    }}
+>>>>>>> 4f2e4b791db4bbf99f0e54520b95e0a49a52380f
                   />
                   <Area
                     type="monotone"
@@ -176,12 +215,13 @@ export default function PHHistoryGraph() {
                     fill="url(#colorPh)"
                     animationDuration={1000}
                   />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+                </AreaChart >
+              </ResponsiveContainer >
+            )
+}
+          </div >
+        </div >
+      </div >
+    </div >
   );
 }

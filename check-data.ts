@@ -1,25 +1,31 @@
+import { prisma } from "@/lib/prisma";
 
-import { PrismaClient } from '@prisma/client';
+async function checkData() {
+  try {
+    const count = await prisma.monitoringLog.count();
+    console.log("✅ Total monitoring logs:", count);
 
-const prisma = new PrismaClient();
-
-async function main() {
-    console.log('Fetching latest 10 MonitoringLogs (Global)...');
-    const logs = await prisma.monitoringLog.findMany({
-        orderBy: {
-            created_at: 'desc',
+    if (count > 0) {
+      // Try dengan kolom minimal
+      const latest = await prisma.monitoringLog.findFirst({
+        orderBy: { created_at: "desc" },
+        select: {
+          id: true,
+          battery_level: true,
+          ph_value: true,
+          level: true,
+          created_at: true,
         },
-        take: 10,
-    });
-
-    console.log(JSON.stringify(logs, null, 2));
+      });
+      console.log("✅ Latest record (minimal fields):", latest);
+    } else {
+      console.log("⚠️ Tidak ada data di monitoring_logs.");
+    }
+  } catch (error: any) {
+    console.error("❌ Error:", error.message);
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
-main()
-    .catch((e) => {
-        console.error(e);
-        process.exit(1);
-    })
-    .finally(async () => {
-        await prisma.$disconnect();
-    });
+checkData();
