@@ -11,7 +11,6 @@ import {
   Area,
 } from "recharts";
 import { BarChart3, MoveHorizontal } from "lucide-react";
-import { format } from "date-fns";
 
 type TimeRange = "hour" | "day" | "month" | "year";
 
@@ -67,7 +66,7 @@ export default function PHHistoryGraph() {
     } catch (err) {
       console.error("[PH-HISTORY] Error fetching data:", err);
       setError(err instanceof Error ? err.message : "Unknown error");
-      setData([]); // Set empty array instead of dummy data
+      setData([]);
     } finally {
       setLoading(false);
     }
@@ -76,10 +75,9 @@ export default function PHHistoryGraph() {
   /**
    * LOGIKA LEBAR DINAMIS:
    * Mengatur lebar berdasarkan jumlah titik data agar setiap titik
-   * memiliki ruang minimal 50-80px untuk bernapas.
+   * memiliki ruang minimal 50px untuk bernapas.
    */
   const getMinWidth = () => {
-    // Dynamic width based on real data length
     const dataLength = data.length || 24;
     return `${Math.max(600, dataLength * 50)}px`;
   };
@@ -97,16 +95,17 @@ export default function PHHistoryGraph() {
         </div>
       </div>
 
-      {/* Selector Periode - Currently just refreshes data */}
+      {/* Selector Periode */}
       <div className="flex bg-slate-100 p-1 rounded-lg gap-1">
         {(["hour", "day", "month", "year"] as TimeRange[]).map((r) => (
           <button
             key={r}
             onClick={() => setRange(r)}
-            className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all uppercase ${range === r
-              ? "bg-white text-blue-600 shadow-sm"
-              : "text-slate-500 hover:text-slate-700"
-              }`}
+            className={`flex-1 py-1.5 text-[10px] font-bold rounded-md transition-all uppercase ${
+              range === r
+                ? "bg-white text-blue-600 shadow-sm"
+                : "text-slate-500 hover:text-slate-700"
+            }`}
           >
             {r === "hour"
               ? "Jam"
@@ -122,46 +121,35 @@ export default function PHHistoryGraph() {
       {/* Kontainer Scroll */}
       <div className="w-full overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
         <div style={{ minWidth: getMinWidth() }}>
-<<<<<<< HEAD
-  <div className="h-[280px] w-full">
-    {loading ? (
-      <div className="flex items-center justify-center h-full text-gray-400">
-        Memuat data...
-=======
-          <div className="h-96 w-full">
-          {loading ? (
-            <div className="flex items-center justify-center h-full text-slate-400">
-              <span>Memuat data pH...</span>
-            </div>
-          ) : error ? (
-            <div className="flex items-center justify-center h-full text-red-500">
-              <span>Error: {error}</span>
-            </div>
-          ) : data.length === 0 ? (
-            <div className="flex items-center justify-center h-full text-slate-400">
-              <span>Belum ada data pH tersedia</span>
->>>>>>> 4f2e4b791db4bbf99f0e54520b95e0a49a52380f
-            </div>
-          ) : (
-            <ResponsiveContainer width="100%" height="100%">
-              <AreaChart
-                data={data}
-                margin={{ left: -10, right: 30, bottom: 20 }}
-              >
-                <defs>
-                  <linearGradient id="colorPh" x1="0" y1="0" x2="0" y2="1">
-<<<<<<< HEAD
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.15} />
-=======
+          <div className="h-[280px] w-full">
+            {loading ? (
+              <div className="flex items-center justify-center h-full text-slate-400">
+                <span>Memuat data pH...</span>
+              </div>
+            ) : error ? (
+              <div className="flex items-center justify-center h-full text-red-500">
+                <span>Error: {error}</span>
+              </div>
+            ) : data.length === 0 ? (
+              <div className="flex items-center justify-center h-full text-slate-400">
+                <span>Belum ada data pH tersedia</span>
+              </div>
+            ) : (
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart
+                  data={data}
+                  margin={{ left: -10, right: 30, bottom: 20 }}
+                >
+                  <defs>
+                    <linearGradient id="colorPh" x1="0" y1="0" x2="0" y2="1">
                       <stop
                         offset="5%"
                         stopColor="#3b82f6"
                         stopOpacity={0.15}
                       />
->>>>>>> 4f2e4b791db4bbf99f0e54520b95e0a49a52380f
                       <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                    </linearGradient >
-                  </defs >
+                    </linearGradient>
+                  </defs>
                   <CartesianGrid
                     strokeDasharray="3 3"
                     vertical={true}
@@ -196,15 +184,12 @@ export default function PHHistoryGraph() {
                       fontSize: "12px",
                       padding: "12px",
                     }}
-<<<<<<< HEAD
-=======
                     formatter={(value: any, name: string | undefined) => {
                       if (name === "ph") {
-                        return [value.toFixed(2), "Rata-rata pH"];
+                        return [Number(value).toFixed(2), "Rata-rata pH"];
                       }
                       return [value, name];
                     }}
->>>>>>> 4f2e4b791db4bbf99f0e54520b95e0a49a52380f
                   />
                   <Area
                     type="monotone"
@@ -215,13 +200,12 @@ export default function PHHistoryGraph() {
                     fill="url(#colorPh)"
                     animationDuration={1000}
                   />
-                </AreaChart >
-              </ResponsiveContainer >
-            )
-}
-          </div >
-        </div >
-      </div >
-    </div >
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
