@@ -1,0 +1,57 @@
+
+> dashboard-monitoring-iot@0.1.0 build
+> next build
+
+Γû▓ Next.js 16.1.3 (Turbopack)
+- Environments: .env.local, .env
+
+  Creating an optimized production build ...
+Γ£ô Compiled successfully in 4.2s
+  Running TypeScript ...
+  Collecting page data using 15 workers ...
+  Generating static pages using 15 workers (0/32) ...
+  Generating static pages using 15 workers (8/32) 
+  Generating static pages using 15 workers (16/32) 
+  Generating static pages using 15 workers (24/32) 
+Γ£ô Generating static pages using 15 workers (32/32) in 350.4ms
+  Finalizing page optimization ...
+
+Route (app)
+Γöî Γùï /
+Γö£ Γùï /_not-found
+Γö£ Γùï /admin
+Γö£ ╞Æ /api/admin/change-password
+Γö£ ╞Æ /api/admin/users
+Γö£ ╞Æ /api/admin/verify
+Γö£ ╞Æ /api/alerts
+Γö£ ╞Æ /api/auth/[...nextauth]
+Γö£ ╞Æ /api/auth/register
+Γö£ ╞Æ /api/debug/db
+Γö£ ╞Æ /api/debug/session
+Γö£ ╞Æ /api/device
+Γö£ ╞Æ /api/device-control
+Γö£ ╞Æ /api/device-status
+Γö£ ╞Æ /api/health
+Γö£ ╞Æ /api/history
+Γö£ ╞Æ /api/monitoring-latest
+Γö£ ╞Æ /api/monitoring-log
+Γö£ ╞Æ /api/ph
+Γö£ ╞Æ /api/ph-history
+Γö£ ╞Æ /api/ph-latest
+Γö£ ╞Æ /api/ph-test
+Γö£ ╞Æ /api/pump-history
+Γö£ ╞Æ /api/pump-relay
+Γö£ ╞Æ /api/user/change-password
+Γö£ ╞Æ /api/water-level
+Γö£ Γùï /kolam
+Γö£ Γùï /login
+Γö£ Γùï /profile
+Γö£ Γùï /sawah
+Γöö Γùï /signup
+
+
+╞Æ Proxy (Middleware)
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+

@@ -21,6 +21,8 @@ import {
   Settings,
   Activity,
   Lock,
+  Fish,
+  Sprout,
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
@@ -55,8 +57,6 @@ export default function AdminPage() {
 
   // Device data states
   const [battery, setBattery] = useState(85);
-  const [credit, setCredit] = useState(50000);
-  const [kuota, setKuota] = useState(4.5);
   const [isOnline, setIsOnline] = useState(true);
   const [rssi, setRssi] = useState(31);
   const [currentPH, setCurrentPH] = useState(7.0);
@@ -74,10 +74,16 @@ export default function AdminPage() {
     email: "",
     password: "",
   });
+  const [showMessageModal, setShowMessageModal] = useState(false);
+  const [selectedUserForMessage, setSelectedUserForMessage] =
+    useState<User | null>(null);
+  const [messageText, setMessageText] = useState("");
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
+  const [isTogglingUserStatus, setIsTogglingUserStatus] = useState(false);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
 
   // Pump history states
   const [pumpHistory, setPumpHistory] = useState<any[]>([]);
-  const [selectedPumpMode, setSelectedPumpMode] = useState("sawah");
 
   // Change password states
   const [showChangePassword, setShowChangePassword] = useState(false);
@@ -178,9 +184,7 @@ export default function AdminPage() {
   useEffect(() => {
     const fetchPumpHistory = async () => {
       try {
-        const response = await fetch(
-          `/api/pump-history?mode=${selectedPumpMode}&limit=10&offset=0`,
-        );
+        const response = await fetch(`/api/pump-history?limit=20&offset=0`);
         if (response.ok) {
           const data = await response.json();
           setPumpHistory(data.data || []);
@@ -193,7 +197,7 @@ export default function AdminPage() {
     fetchPumpHistory();
     const interval = setInterval(fetchPumpHistory, 10000);
     return () => clearInterval(interval);
-  }, [selectedPumpMode]);
+  }, []);
 
   // Fetch users
   useEffect(() => {
@@ -220,8 +224,6 @@ export default function AdminPage() {
   useEffect(() => {
     const interval = setInterval(() => {
       setBattery((prev) => Math.max(0, prev - Math.random() * 0.5));
-      setCredit((prev) => Math.max(0, prev - Math.random() * 100));
-      setKuota((prev) => Math.max(0, prev - 0.01));
     }, 10000);
     return () => clearInterval(interval);
   }, []);
@@ -270,6 +272,41 @@ export default function AdminPage() {
     if (ph < 8)
       return `rgb(${Math.round(100 - (ph - 7) * 100)}, ${Math.round(200 - (ph - 7) * 50)}, ${Math.round(50 + (ph - 7) * 150)})`;
     return "#3B82F6";
+  };
+
+  // pH text color for Tailwind (untuk status description)
+  const getPhTextStatus = (ph: number): string => {
+    if (ph < 4) return "Sangat Asam";
+    if (ph < 6) return "Asam";
+    if (ph < 7) return "Sedikit Asam";
+    if (ph === 7) return "Netral (Optimal)";
+    if (ph < 8) return "Sedikit Basa";
+    if (ph < 10) return "Basa";
+    return "Sangat Basa";
+  };
+
+  // Helper function untuk status Kolam Ikan berdasarkan pH
+  const getKolamBlockColor = (ph: number): { border: string; bg: string } => {
+    if (ph < 4.0 || ph > 9.5) {
+      return { border: "border-red-300", bg: "bg-red-50" };
+    } else if ((ph >= 4.0 && ph < 6.5) || (ph > 8.5 && ph <= 9.5)) {
+      return { border: "border-amber-300", bg: "bg-amber-50" };
+    } else {
+      return { border: "border-emerald-300", bg: "bg-emerald-50" };
+    }
+  };
+
+  // Helper function untuk status Sawah berdasarkan pH
+  const getSawahBlockColor = (ph: number): { border: string; bg: string } => {
+    if (ph < 4.5 || ph > 8.0) {
+      return ph > 8.0
+        ? { border: "border-amber-300", bg: "bg-amber-50" }
+        : { border: "border-red-300", bg: "bg-red-50" };
+    } else if ((ph >= 4.5 && ph < 5.5) || (ph > 7.0 && ph <= 8.0)) {
+      return { border: "border-yellow-300", bg: "bg-yellow-50" };
+    } else {
+      return { border: "border-emerald-300", bg: "bg-emerald-50" };
+    }
   };
 
   // RSSI status helper
@@ -369,15 +406,113 @@ export default function AdminPage() {
     toast.success(`User ${newUser.username} berhasil ditambahkan`);
   };
 
-  const handleDeleteUser = (id: string) => {
-    setUsers(users.filter((u) => u.id !== id));
-    toast.success("User berhasil dihapus");
+  const handleDeleteUser = async (userId: string) => {
+    const user = users.find((u) => u.id === userId);
+    if (!user) return;
+
+    // Confirm delete
+    if (
+      !window.confirm(
+        `Hapus user ${user.username}? Tindakan ini tidak dapat dibatalkan.`,
+      )
+    ) {
+      return;
+    }
+
+    setIsDeletingUser(true);
+    try {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: "DELETE",
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        console.log(`[DELETE] User ${user.email} deleted successfully:`, data);
+        setUsers(users.filter((u) => u.id !== userId));
+        toast.success(`User ${user.username} berhasil dihapus dari database`);
+      } else {
+        const errorData = await response.json();
+        console.error(`[DELETE] Error deleting user:`, errorData);
+        toast.error(errorData.error || "Gagal menghapus user");
+      }
+    } catch (error) {
+      console.error("[DELETE] Network error:", error);
+      toast.error("Gagal menghapus user - periksa koneksi internet");
+    } finally {
+      setIsDeletingUser(false);
+    }
   };
 
-  const handleToggleUserStatus = (id: string) => {
-    setUsers(
-      users.map((u) => (u.id === id ? { ...u, isActive: !u.isActive } : u)),
-    );
+  const handleToggleUserStatus = async (userId: string) => {
+    const user = users.find((u) => u.id === userId);
+    if (!user) return;
+
+    setIsTogglingUserStatus(true);
+    try {
+      const response = await fetch(`/api/admin/users/${userId}/status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isActive: !user.isActive }),
+      });
+
+      if (response.ok) {
+        setUsers(
+          users.map((u) =>
+            u.id === userId ? { ...u, isActive: !u.isActive } : u,
+          ),
+        );
+        toast.success(
+          `User ${user.isActive ? "dinonaktifkan" : "diaktifkan"} berhasil`,
+        );
+      } else {
+        toast.error("Gagal mengubah status user");
+      }
+    } catch (error) {
+      console.error("Error toggling user status:", error);
+      toast.error("Gagal mengubah status user");
+    } finally {
+      setIsTogglingUserStatus(false);
+    }
+  };
+
+  const handleOpenMessageModal = (user: User) => {
+    setSelectedUserForMessage(user);
+    setMessageText("");
+    setShowMessageModal(true);
+  };
+
+  const handleSendMessage = async () => {
+    if (!selectedUserForMessage || !messageText.trim()) {
+      toast.error("Pesan tidak boleh kosong");
+      return;
+    }
+
+    setIsSendingMessage(true);
+    try {
+      const response = await fetch("/api/admin/send-message", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: selectedUserForMessage.id,
+          message: messageText,
+        }),
+      });
+
+      if (response.ok) {
+        toast.success(`Pesan terkirim ke ${selectedUserForMessage.username}`);
+        setShowMessageModal(false);
+        setSelectedUserForMessage(null);
+        setMessageText("");
+      } else {
+        const errorData = await response.json();
+        toast.error(errorData.error || "Gagal mengirim pesan");
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast.error("Gagal mengirim pesan");
+    } finally {
+      setIsSendingMessage(false);
+    }
   };
 
   const handleTogglePump = async () => {
@@ -599,98 +734,151 @@ export default function AdminPage() {
         {/* TAB: SISTEM */}
         {activeTab === "sistem" && (
           <div className="space-y-6">
-            {/* Informasi Sistem */}
+            {/* Status Sistem - Gabungan Baterai & Koneksi */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-xl font-bold mb-6">Informasi Sistem</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Battery */}
-                <div className="bg-linear-to-br from-green-50 to-green-100 rounded-lg p-4 border border-green-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Battery className="w-5 h-5 text-green-600" />
-                    <span className="text-sm font-medium text-gray-700">
-                      Baterai
-                    </span>
+              <h2 className="text-xl font-bold mb-6">Status Sistem</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* BLOK 1: Baterai */}
+                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-6 border border-emerald-200 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-emerald-100 rounded-lg">
+                      <Battery className="w-5 h-5 text-emerald-600" />
+                    </div>
+                    <h3 className="font-semibold text-gray-700">Baterai</h3>
                   </div>
-                  <div className="text-3xl font-bold text-green-700">
-                    {battery.toFixed(1)}%
+
+                  {/* Mini Battery Visual */}
+                  <div className="flex items-center justify-center mb-4">
+                    <div className="w-16 h-28 border-3 border-emerald-600 rounded-md flex flex-col items-center justify-center bg-white relative">
+                      <div
+                        className={`absolute bottom-0 left-0 right-0 transition-all duration-300 ${
+                          battery >= 75
+                            ? "bg-emerald-500"
+                            : battery >= 50
+                              ? "bg-yellow-500"
+                              : battery >= 25
+                                ? "bg-orange-500"
+                                : "bg-red-500"
+                        }`}
+                        style={{ height: `${battery}%` }}
+                      />
+                      <span className="relative text-xl font-bold text-gray-800 z-10">
+                        {battery.toFixed(0)}%
+                      </span>
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-300 rounded-full h-2 mt-3">
+
+                  <div className="text-center">
+                    <p
+                      className={`text-lg font-bold mb-1 ${
+                        battery >= 75
+                          ? "text-emerald-600"
+                          : battery >= 50
+                            ? "text-yellow-600"
+                            : battery >= 25
+                              ? "text-orange-600"
+                              : "text-red-600"
+                      }`}
+                    >
+                      {battery >= 75
+                        ? "Optimal"
+                        : battery >= 50
+                          ? "Normal"
+                          : battery >= 25
+                            ? "Rendah"
+                            : "Kritis"}
+                    </p>
+                    <p className="text-xs text-gray-600">
+                      {battery >= 75
+                        ? "Baik"
+                        : battery >= 50
+                          ? "Cukup"
+                          : battery >= 25
+                            ? "Perlu Diisi"
+                            : "Segera Isi"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* BLOK 2: Status Perangkat */}
+                <div className="bg-gradient-to-br from-sky-50 to-blue-50 rounded-xl p-6 border border-sky-200 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-sky-100 rounded-lg">
+                      {isOnline ? (
+                        <Wifi className="w-5 h-5 text-sky-600" />
+                      ) : (
+                        <WifiOff className="w-5 h-5 text-red-600" />
+                      )}
+                    </div>
+                    <h3 className="font-semibold text-gray-700">Perangkat</h3>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center py-4">
                     <div
-                      className="bg-green-600 h-2 rounded-full transition-all"
-                      style={{ width: `${battery}%` }}
-                    />
+                      className={`w-14 h-14 rounded-full flex items-center justify-center mb-3 ${
+                        isOnline ? "bg-emerald-100" : "bg-red-100"
+                      }`}
+                    >
+                      {isOnline ? (
+                        <Wifi className={`w-7 h-7 text-emerald-600`} />
+                      ) : (
+                        <WifiOff className={`w-7 h-7 text-red-600`} />
+                      )}
+                    </div>
+                    <p
+                      className={`text-lg font-bold ${
+                        isOnline ? "text-emerald-600" : "text-red-600"
+                      }`}
+                    >
+                      {isOnline ? "Terhubung" : "Terputus"}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-2">
+                      {isOnline ? "Koneksi aktif" : "Tidak terhubung"}
+                    </p>
                   </div>
                 </div>
 
-                {/* Pulsa */}
-                <div className="bg-linear-to-br from-blue-50 to-blue-100 rounded-lg p-4 border border-blue-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <DollarSign className="w-5 h-5 text-blue-600" />
-                    <span className="text-sm font-medium text-gray-700">
-                      Pulsa
-                    </span>
+                {/* BLOK 3: Sinyal Kualitas */}
+                <div className="bg-gradient-to-br from-violet-50 to-purple-50 rounded-xl p-6 border border-violet-200 shadow-sm hover:shadow-md transition-shadow">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-2 bg-violet-100 rounded-lg">
+                      <Activity className="w-5 h-5 text-violet-600" />
+                    </div>
+                    <h3 className="font-semibold text-gray-700">Signal</h3>
                   </div>
-                  <div className="text-3xl font-bold text-blue-700">
-                    Rp{(credit / 1000).toFixed(1)}k
-                  </div>
-                  <div className="text-xs text-gray-600 mt-3">
-                    Saldo Tersisa
-                  </div>
-                </div>
 
-                {/* Data */}
-                <div className="bg-linear-to-br from-purple-50 to-purple-100 rounded-lg p-4 border border-purple-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Wifi className="w-5 h-5 text-purple-600" />
-                    <span className="text-sm font-medium text-gray-700">
-                      Data
-                    </span>
-                  </div>
-                  <div className="text-3xl font-bold text-purple-700">
-                    {kuota.toFixed(2)} GB
-                  </div>
-                  <div className="text-xs text-gray-600 mt-3">
-                    Kuota Tersisa
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* Status Koneksi */}
-            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-              <h2 className="text-xl font-bold mb-6">Status Koneksi</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="border border-gray-200 rounded-lg p-4">
-                  <div className="flex items-center gap-3 mb-3">
-                    {isOnline ? (
-                      <Wifi className="w-6 h-6 text-green-600" />
-                    ) : (
-                      <WifiOff className="w-6 h-6 text-red-600" />
-                    )}
-                    <span className="font-medium">Perangkat</span>
-                  </div>
-                  <div
-                    className={`text-2xl font-bold ${
-                      isOnline ? "text-green-600" : "text-red-600"
-                    }`}
-                  >
-                    {isOnline ? "Terhubung" : "Terputus"}
-                  </div>
-                </div>
-
-                <div className={`border rounded-lg p-4 ${rssiStatus.bgColor}`}>
-                  <div className="flex items-center gap-3 mb-3">
-                    <Activity
-                      className="w-6 h-6"
-                      style={{ color: rssiStatus.color.replace("text-", "") }}
-                    />
-                    <span className="font-medium">Signal Kualitas (RSSI)</span>
-                  </div>
-                  <div className={`text-2xl font-bold ${rssiStatus.color}`}>
-                    {rssiStatus.status}
-                  </div>
-                  <div className="text-sm text-gray-600 mt-2">
-                    CSQ: {rssi}/31
+                  <div className="flex flex-col items-center justify-center py-4">
+                    <div
+                      className={`w-14 h-14 rounded-full flex items-center justify-center mb-3 ${
+                        rssi > 20
+                          ? "bg-emerald-100"
+                          : rssi > 10
+                            ? "bg-yellow-100"
+                            : "bg-red-100"
+                      }`}
+                    >
+                      <Activity
+                        className={`w-7 h-7 ${
+                          rssi > 20
+                            ? "text-emerald-600"
+                            : rssi > 10
+                              ? "text-yellow-600"
+                              : "text-red-600"
+                        }`}
+                      />
+                    </div>
+                    <p
+                      className={`text-lg font-bold ${
+                        rssi > 20
+                          ? "text-emerald-600"
+                          : rssi > 10
+                            ? "text-yellow-600"
+                            : "text-red-600"
+                      }`}
+                    >
+                      {rssi > 20 ? "Kuat" : rssi > 10 ? "Sedang" : "Lemah"}
+                    </p>
+                    <p className="text-xs text-gray-600 mt-2">CSQ: {rssi}/31</p>
                   </div>
                 </div>
               </div>
@@ -707,24 +895,24 @@ export default function AdminPage() {
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
                 <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                   <FlaskConical className="w-5 h-5" />
-                  pH Real-time (Sawah)
+                  pH Real-time
                 </h3>
-                <div className="flex items-center justify-center py-8">
+                <div className="flex flex-col items-center justify-center py-8">
                   <div className="text-center">
-                    <div
-                      className="w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-4"
-                      style={{ backgroundColor: phColor, opacity: 0.2 }}
-                    >
-                      <div
-                        className="w-20 h-20 rounded-full flex items-center justify-center"
-                        style={{ backgroundColor: phColor }}
+                    {/* pH Value - Angka besar dengan warna dinamis */}
+                    <div className="mb-4">
+                      <span
+                        className="text-7xl font-bold transition-colors duration-300"
+                        style={{ color: phColor }}
                       >
-                        <span className="text-3xl font-bold text-white">
-                          {currentPH.toFixed(2)}
-                        </span>
-                      </div>
+                        {currentPH.toFixed(2)}
+                      </span>
                     </div>
-                    <p className="text-gray-600 text-sm">Kondisi Normal</p>
+
+                    {/* Status deskripsi */}
+                    <p className="text-sm font-medium text-gray-600">
+                      {getPhTextStatus(currentPH)}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -776,35 +964,152 @@ export default function AdminPage() {
               <PHHistoryGraph />
             </div>
 
+            {/* Status Lahan */}
+            <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+              <h3 className="text-lg font-bold mb-4">Status Lahan</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* KOLAM IKAN Block */}
+                <div
+                  className={`border-2 rounded-lg p-5 ${getKolamBlockColor(currentPH).border} ${getKolamBlockColor(currentPH).bg}`}
+                >
+                  <h3 className="text-lg font-bold text-blue-900 mb-4 flex items-center gap-2">
+                    <Fish className="w-5 h-5" />
+                    Kolam Ikan
+                  </h3>
+
+                  {currentPH < 4.0 ? (
+                    <div className="space-y-3">
+                      <div className="bg-red-100 border border-red-300 rounded p-3">
+                        <p className="text-sm font-bold text-red-700">
+                          Bahaya: Ikan Mati
+                        </p>
+                        <p className="text-xs text-red-800 mt-2">
+                          💡 Kuras & Ganti Air Total
+                        </p>
+                      </div>
+                    </div>
+                  ) : currentPH >= 4.0 && currentPH < 6.5 ? (
+                    <div className="space-y-3">
+                      <div className="bg-yellow-100 border border-yellow-300 rounded p-3">
+                        <p className="text-sm font-bold text-yellow-700">
+                          Air Asam
+                        </p>
+                        <p className="text-xs text-yellow-800 mt-2">
+                          💡 Lakukan Pengapuran
+                        </p>
+                      </div>
+                    </div>
+                  ) : currentPH >= 6.5 && currentPH <= 8.5 ? (
+                    <div className="space-y-3">
+                      <div className="bg-green-100 border border-green-300 rounded p-3">
+                        <p className="text-sm font-bold text-green-700">
+                          ✓ pH Optimal
+                        </p>
+                        <p className="text-xs text-green-800 mt-2">
+                          💡 Pertahankan Kondisi
+                        </p>
+                      </div>
+                    </div>
+                  ) : currentPH > 8.5 && currentPH <= 9.5 ? (
+                    <div className="space-y-3">
+                      <div className="bg-orange-100 border border-orange-300 rounded p-3">
+                        <p className="text-sm font-bold text-orange-700">
+                          Air Basa
+                        </p>
+                        <p className="text-xs text-orange-800 mt-2">
+                          💡 Tambah Air Tawar
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="bg-red-100 border border-red-300 rounded p-3">
+                        <p className="text-sm font-bold text-red-700">
+                          Bahaya: Ikan Stres
+                        </p>
+                        <p className="text-xs text-red-800 mt-2">
+                          💡 Netralisir Segera
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* SAWAH PADI Block */}
+                <div
+                  className={`border-2 rounded-lg p-5 ${getSawahBlockColor(currentPH).border} ${getSawahBlockColor(currentPH).bg}`}
+                >
+                  <h3 className="text-lg font-bold text-green-900 mb-4 flex items-center gap-2">
+                    <Sprout className="w-5 h-5" />
+                    Sawah Padi
+                  </h3>
+
+                  {currentPH < 4.5 ? (
+                    <div className="space-y-3">
+                      <div className="bg-red-100 border border-red-300 rounded p-3">
+                        <p className="text-sm font-bold text-red-700">
+                          Sangat Asam
+                        </p>
+                        <p className="text-xs text-red-800 mt-2">
+                          💡 Kapur Dosis Tinggi
+                        </p>
+                      </div>
+                    </div>
+                  ) : currentPH >= 4.5 && currentPH < 5.5 ? (
+                    <div className="space-y-3">
+                      <div className="bg-orange-100 border border-orange-300 rounded p-3">
+                        <p className="text-sm font-bold text-orange-700">
+                          Kurang Subur
+                        </p>
+                        <p className="text-xs text-orange-800 mt-2">
+                          💡 Tabur Dolomit
+                        </p>
+                      </div>
+                    </div>
+                  ) : currentPH >= 5.5 && currentPH <= 7.0 ? (
+                    <div className="space-y-3">
+                      <div className="bg-green-100 border border-green-300 rounded p-3">
+                        <p className="text-sm font-bold text-green-700">
+                          ✓ pH Optimal
+                        </p>
+                        <p className="text-xs text-green-800 mt-2">
+                          💡 Pertahankan Kondisi
+                        </p>
+                      </div>
+                    </div>
+                  ) : currentPH > 7.0 && currentPH <= 8.0 ? (
+                    <div className="space-y-3">
+                      <div className="bg-yellow-100 border border-yellow-300 rounded p-3">
+                        <p className="text-sm font-bold text-yellow-700">
+                          Sedikit Basa
+                        </p>
+                        <p className="text-xs text-yellow-800 mt-2">
+                          💡 Pantau Perkembangan
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="bg-orange-100 border border-orange-300 rounded p-3">
+                        <p className="text-sm font-bold text-orange-700">
+                          Terlalu Basa
+                        </p>
+                        <p className="text-xs text-orange-800 mt-2">
+                          💡 Tambah Air Hujan
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
             {/* Riwayat Pompa - Khusus Admin */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
               <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
                 <History className="w-5 h-5" />
                 Riwayat Kontrol Pompa
               </h3>
-
-              <div className="mb-4 flex gap-2">
-                <button
-                  onClick={() => setSelectedPumpMode("sawah")}
-                  className={`px-4 py-2 rounded-lg font-medium transition ${
-                    selectedPumpMode === "sawah"
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  Sawah
-                </button>
-                <button
-                  onClick={() => setSelectedPumpMode("kolam")}
-                  className={`px-4 py-2 rounded-lg font-medium transition ${
-                    selectedPumpMode === "kolam"
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                  }`}
-                >
-                  Kolam
-                </button>
-              </div>
 
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -979,18 +1284,25 @@ export default function AdminPage() {
                           onCheckedChange={() =>
                             handleToggleUserStatus(user.id)
                           }
+                          disabled={isTogglingUserStatus}
                         />
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {user.createdAt}
                       </td>
                       <td className="px-6 py-4 flex justify-center gap-2">
-                        <button className="p-2 hover:bg-gray-100 rounded text-blue-600">
+                        <button
+                          onClick={() => handleOpenMessageModal(user)}
+                          className="p-2 hover:bg-blue-100 rounded text-blue-600 transition"
+                          title="Kirim pesan ke user"
+                        >
                           <Edit className="w-4 h-4" />
                         </button>
                         <button
                           onClick={() => handleDeleteUser(user.id)}
-                          className="p-2 hover:bg-red-100 rounded text-red-600"
+                          className="p-2 hover:bg-red-100 rounded text-red-600 transition"
+                          disabled={isDeletingUser}
+                          title="Hapus user"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -1006,6 +1318,65 @@ export default function AdminPage() {
         {/* TAB: KEAMANAN */}
         {/* Removed - replaced with modal dialog */}
       </div>
+
+      {/* Send Message Modal */}
+      {showMessageModal && selectedUserForMessage && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-xl">
+            <h2 className="text-2xl font-bold mb-1">Kirim Pesan</h2>
+            <p className="text-sm text-gray-600 mb-6">
+              Ke:{" "}
+              <span className="font-semibold">
+                {selectedUserForMessage.username}
+              </span>
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Pesan
+                </label>
+                <textarea
+                  placeholder="Ketik pesan Anda di sini..."
+                  value={messageText}
+                  onChange={(e) => setMessageText(e.target.value)}
+                  disabled={isSendingMessage}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  rows={5}
+                />
+              </div>
+            </div>
+
+            <div className="mt-8 flex gap-3">
+              <button
+                onClick={() => {
+                  setShowMessageModal(false);
+                  setSelectedUserForMessage(null);
+                  setMessageText("");
+                }}
+                disabled={isSendingMessage}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium transition disabled:opacity-50"
+              >
+                Batal
+              </button>
+              <button
+                onClick={handleSendMessage}
+                disabled={isSendingMessage}
+                className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isSendingMessage ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Mengirim...
+                  </>
+                ) : (
+                  "Kirim"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Change Password Modal */}
       {showChangePassword && (

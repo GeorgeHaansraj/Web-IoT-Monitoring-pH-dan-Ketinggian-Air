@@ -40,6 +40,18 @@ export async function POST(request: NextRequest) {
       },
     });
 
+    // JUGA simpan pH ke PHReading untuk grafik history
+    if (ph_value) {
+      await prisma.pHReading.create({
+        data: {
+          value: parseFloat(ph_value),
+          location: "kolam", // Default location, bisa diubah dari parameter jika perlu
+          deviceId: deviceId || "default",
+          temperature: temperature ? parseFloat(temperature) : null,
+        },
+      });
+    }
+
     console.log(
       `[MONITORING-LOG] Created entry: Battery=${log.battery_level}%, pH=${log.ph_value}, Level=${log.level}cm`,
     );

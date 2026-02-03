@@ -15,6 +15,8 @@ import {
   UserCircle,
   FlaskConical,
   Waves,
+  Fish,
+  Sprout,
 } from "lucide-react";
 import WaterLevelMeter from "@/components/visualizations/WaterLevelMeter";
 import { toast } from "sonner";
@@ -29,8 +31,6 @@ export default function Dashboard() {
 
   // Device Data States
   const [battery, setBattery] = useState(85);
-  const [credit, setCredit] = useState(50000);
-  const [kuota, setKuota] = useState(4.5);
   const [isOnline, setIsOnline] = useState(true);
   const [rssi, setRssi] = useState(31); // CSQ value 0-31, 99 for no signal
   const [currentPH, setCurrentPH] = useState(7.0);
@@ -39,29 +39,65 @@ export default function Dashboard() {
   const [waterLevel, setWaterLevel] = useState(0);
   const [showDurationModal, setShowDurationModal] = useState(false);
   const [isTogglingPump, setIsTogglingPump] = useState(false);
+  const [lastDataTimestamp, setLastDataTimestamp] = useState<number>(
+    Date.now(),
+  );
 
-  // Fetch device status from database on mount
+  // Message States
+  const [adminMessages, setAdminMessages] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  // TIMEOUT_THRESHOLD: jika tidak ada data dalam 60 detik, dinyatakan offline
+  const TIMEOUT_THRESHOLD = 60000; // 60 detik
+
+  // FEATURE: Polling otomatis untuk cek status device
+  // Termasuk timeout detection berdasarkan timestamp data terbaru
   useEffect(() => {
-    const fetchDeviceStatus = async () => {
+    const checkDeviceStatus = async () => {
       try {
         const response = await fetch("/api/device-status");
-        if (!response.ok) return;
+        if (!response.ok) {
+          console.warn("[STATUS] Failed to fetch device status");
+          setIsOnline(false);
+          return;
+        }
         const data = await response.json();
 
-        // Update online status and other device-specific data
-        if (data) {
-          setIsOnline(true);
+        // Jika ada data dan baru-baru ini (< timeout threshold), set online
+        if (data && data.last_update) {
+          const lastUpdateTime = new Date(data.last_update).getTime();
+          const timeSinceLastUpdate = Date.now() - lastUpdateTime;
+
+          if (timeSinceLastUpdate < TIMEOUT_THRESHOLD) {
+            console.log(
+              `[STATUS] Device online (last update: ${timeSinceLastUpdate}ms ago)`,
+            );
+            setIsOnline(true);
+          } else {
+            console.warn(
+              `[STATUS] Device timeout (no data for ${timeSinceLastUpdate}ms)`,
+            );
+            setIsOnline(false);
+          }
+        } else {
+          setIsOnline(false);
         }
       } catch (error) {
-        console.error("Error fetching device status:", error);
+        console.error("[STATUS] Error checking device status:", error);
         setIsOnline(false);
       }
     };
 
-    fetchDeviceStatus();
+    // Check immediately on mount
+    checkDeviceStatus();
+
+    // Then poll every 10 seconds
+    const statusInterval = setInterval(checkDeviceStatus, 10000);
+    return () => clearInterval(statusInterval);
   }, []);
 
-  // Fetch all monitoring data (battery, pH, level) from monitoring_log
+  // FEATURE: Fetch all monitoring data (battery, pH, level) from monitoring_log
+  // Also tracks timestamp and updates online status based on timeout
   useEffect(() => {
     const fetchMonitoringData = async () => {
       try {
@@ -70,11 +106,22 @@ export default function Dashboard() {
           console.error(`[MONITORING] API error: HTTP ${response.status}`);
           const errorData = await response.json().catch(() => ({}));
           console.error("[MONITORING] Error details:", errorData);
+          setIsOnline(false);
           return;
         }
         const result = await response.json();
 
         if (result.success && result.data) {
+          // Update timestamp ketika berhasil fetch data baru
+          const dataTimestamp = Date.now();
+          setLastDataTimestamp(dataTimestamp);
+          console.log(
+            `[MONITORING] Data received at ${new Date(dataTimestamp).toLocaleTimeString()}`,
+          );
+
+          // Set online jika data baru berhasil didapat
+          setIsOnline(true);
+
           // Update pH
           if (
             result.data.ph_value !== null &&
@@ -111,9 +158,12 @@ export default function Dashboard() {
               `[MONITORING] Updated signal: ${result.data.signal_strength}`,
             );
           }
+        } else {
+          setIsOnline(false);
         }
       } catch (error) {
         console.error(`[MONITORING] Error fetching data:`, error);
+        setIsOnline(false);
       }
     };
 
@@ -124,8 +174,22 @@ export default function Dashboard() {
       fetchMonitoringData();
     }, 5000);
 
-    return () => clearInterval(pollInterval);
-  }, []);
+    // Timeout detector: check setiap 30 detik jika data sudah stale
+    const timeoutCheckInterval = setInterval(() => {
+      const timeSinceLastData = Date.now() - lastDataTimestamp;
+      if (timeSinceLastData > TIMEOUT_THRESHOLD) {
+        console.warn(
+          `[MONITORING] No data for ${timeSinceLastData}ms, setting offline`,
+        );
+        setIsOnline(false);
+      }
+    }, 30000);
+
+    return () => {
+      clearInterval(pollInterval);
+      clearInterval(timeoutCheckInterval);
+    };
+  }, [lastDataTimestamp, TIMEOUT_THRESHOLD]);
 
   // FEATURE: Fetch pump status on login to sync UI with database
   useEffect(() => {
@@ -204,12 +268,10 @@ export default function Dashboard() {
     return () => clearInterval(pollInterval);
   }, [session?.user, isPumpOn]);
 
-  // Simulasi real-time untuk baterai, pulsa, kuota, dan RSSI
+  // Simulasi real-time untuk baterai dan RSSI
   useEffect(() => {
     const interval = setInterval(() => {
       setBattery((prev) => Math.max(0, prev - Math.random() * 0.5));
-      setCredit((prev) => Math.max(0, prev - Math.random() * 100));
-      setKuota((prev) => Math.max(0, prev - 0.01));
 
       // Simulasi RSSI yang berubah-ubah (untuk testing, nanti bisa diganti dengan data real)
       const possibleRssi = [31, 25, 22, 18, 16, 12, 8, 5, 2, 0, 99];
@@ -217,6 +279,29 @@ export default function Dashboard() {
     }, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  // FEATURE: Fetch admin messages
+  useEffect(() => {
+    if (!session?.user) return;
+
+    const fetchMessages = async () => {
+      try {
+        const response = await fetch("/api/user/messages");
+        if (response.ok) {
+          const data = await response.json();
+          setAdminMessages(data.data || []);
+          setUnreadCount(data.unreadCount || 0);
+          console.log("[MESSAGES] Fetched:", data.data?.length, "messages");
+        }
+      } catch (error) {
+        console.error("[MESSAGES] Error fetching:", error);
+      }
+    };
+
+    fetchMessages();
+    const interval = setInterval(fetchMessages, 30000); // Poll every 30 seconds
+    return () => clearInterval(interval);
+  }, [session?.user]);
 
   // Handle page unload for manual mode pump auto-OFF
   useEffect(() => {
@@ -259,6 +344,46 @@ export default function Dashboard() {
       </div>
     );
   }
+
+  // Function to determine battery color based on level
+  const getBatteryColor = (
+    level: number,
+  ): {
+    bg: string;
+    border: string;
+    icon: string;
+    text: string;
+    bar: string;
+  } => {
+    if (level >= 75) {
+      // Green - Good
+      return {
+        bg: "bg-gradient-to-br from-green-50 to-emerald-100",
+        border: "border-green-300",
+        icon: "text-green-600",
+        text: "text-green-700",
+        bar: "bg-gradient-to-r from-green-500 to-emerald-600",
+      };
+    } else if (level >= 50) {
+      // Yellow - Warning
+      return {
+        bg: "bg-gradient-to-br from-yellow-50 to-amber-100",
+        border: "border-yellow-300",
+        icon: "text-yellow-600",
+        text: "text-yellow-700",
+        bar: "bg-gradient-to-r from-yellow-500 to-amber-600",
+      };
+    } else {
+      // Red - Critical
+      return {
+        bg: "bg-gradient-to-br from-red-50 to-orange-100",
+        border: "border-red-300",
+        icon: "text-red-600",
+        text: "text-red-700",
+        bar: "bg-gradient-to-r from-red-500 to-orange-600",
+      };
+    }
+  };
 
   // Function to determine pH color based on value
   const getPhColor = (ph: number): string => {
@@ -425,6 +550,29 @@ export default function Dashboard() {
     }
   };
 
+  const handleMarkMessageAsRead = async (messageId: string) => {
+    try {
+      const response = await fetch("/api/user/messages", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId }),
+      });
+
+      if (response.ok) {
+        setAdminMessages(
+          adminMessages.map((msg) =>
+            msg.id === messageId
+              ? { ...msg, isRead: true, readAt: new Date().toISOString() }
+              : msg,
+          ),
+        );
+        setUnreadCount(Math.max(0, unreadCount - 1));
+      }
+    } catch (error) {
+      console.error("[MESSAGES] Error marking as read:", error);
+    }
+  };
+
   const handlePumpToggle = async (checked: boolean) => {
     // If turning pump ON, show duration modal first
     if (checked) {
@@ -550,76 +698,130 @@ export default function Dashboard() {
         </div>
       </div>
 
+      {/* Admin Messages */}
+      {adminMessages.length > 0 && (
+        <div className="bg-white rounded-lg shadow-md p-6 border border-blue-200 bg-blue-50">
+          <h3 className="text-lg font-bold text-blue-900 mb-4 flex items-center gap-2">
+            💬 Pesan dari Administrator
+            {unreadCount > 0 && (
+              <span className="bg-blue-600 text-white text-xs font-bold rounded-full px-2 py-1">
+                {unreadCount}
+              </span>
+            )}
+          </h3>
+
+          <div className="space-y-3">
+            {adminMessages.map((message) => (
+              <div
+                key={message.id}
+                className={`p-4 rounded-lg border-l-4 ${
+                  message.isRead
+                    ? "bg-white border-gray-300"
+                    : "bg-blue-100 border-blue-600"
+                }`}
+              >
+                <div className="flex justify-between items-start gap-2 mb-2">
+                  <p
+                    className={`text-sm font-semibold ${
+                      message.isRead ? "text-gray-600" : "text-blue-900"
+                    }`}
+                  >
+                    {new Date(message.createdAt).toLocaleString("id-ID")}
+                  </p>
+                  {!message.isRead && (
+                    <button
+                      onClick={() => handleMarkMessageAsRead(message.id)}
+                      className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition"
+                    >
+                      Tandai dibaca
+                    </button>
+                  )}
+                </div>
+                <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
+                  {message.message}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* System Info */}
       <div className="bg-white rounded-lg shadow-md p-6 space-y-4 border border-gray-100">
         <h2 className="text-xl mb-4 font-semibold">Informasi Sistem</h2>
 
         <div className="grid grid-cols-2 gap-4">
           {/* Battery Widget */}
-          <div className="bg-linear-to-br from-green-50 to-green-100 rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <Battery className="w-5 h-5 text-green-600" />
-              <span className="text-sm text-gray-600 font-medium">Baterai</span>
+          <div
+            className={`rounded-lg p-5 border flex flex-col items-center justify-center ${getBatteryColor(battery).bg} ${getBatteryColor(battery).border}`}
+          >
+            {/* V                                                                                   isual Battery Icon */}
+            <div className="relative mb-4">
+              {/* Battery outline */}
+              <div className="w-16 h-9 border-2 rounded border-gray-400 flex items-center px-1">
+                {/* Battery fill */}
+                <div
+                  className={`h-full rounded transition-all ${getBatteryColor(battery).bar}`}
+                  style={{ width: `${battery}%` }}
+                ></div>
+              </div>
+              {/* Battery terminal */}
+              <div className="absolute -right-1.5 top-1/2 transform -translate-y-1/2 w-1.5 h-3.5 bg-gray-400 rounded-r"></div>
             </div>
-            <div className="text-2xl font-bold">{battery.toFixed(1)}%</div>
-            <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-              <div
-                className="bg-green-600 h-2 rounded-full transition-all"
-                style={{ width: `${battery}%` }}
-              ></div>
-            </div>
-          </div>
 
-          {/* Credit Widget */}
-          <div className="bg-linear-to-br from-blue-50 to-blue-100 rounded-lg p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <DollarSign className="w-5 h-5 text-blue-600" />
-              <span className="text-sm text-gray-600 font-medium">Pulsa</span>
-            </div>
-            <div className="text-2xl font-bold">
-              Rp{(credit / 1000).toFixed(1)}k
-            </div>
-            <div className="text-xs text-gray-500 mt-1">Tersisa</div>
-          </div>
-        </div>
-
-        {/* Data Usage Widget */}
-        <div className="bg-linear-to-br from-purple-50 to-purple-100 rounded-lg p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Wifi className="w-5 h-5 text-purple-600" />
-            <span className="text-sm text-gray-600 font-medium">Data</span>
-          </div>
-          <div>
-            <div className="text-2xl font-bold">{kuota.toFixed(2)} GB</div>
-            <div className="text-xs text-gray-500 mt-1">Tersisa</div>
-          </div>
-        </div>
-
-        {/* Connection Status */}
-        <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-medium">Status Koneksi</span>
-            {isOnline ? (
-              <Wifi className="w-4 h-4 text-green-600" />
-            ) : (
-              <WifiOff className="w-4 h-4 text-red-600" />
-            )}
-          </div>
-          <div className="flex items-center gap-3">
+            {/* Percentage Text */}
             <div
-              className={`px-3 py-1 rounded-lg text-xs font-semibold ${getRssiStatus(rssi).bgColor} ${getRssiStatus(rssi).color}`}
+              className={`text-3xl font-bold ${getBatteryColor(battery).text} mb-1`}
             >
-              <div className="flex items-center gap-1">
-                <span className="font-bold">{rssi}</span>
-                <span>|</span>
-                <span>{getRssiStatus(rssi).status}</span>
+              {battery.toFixed(0)}%
+            </div>
+
+            {/* Label */}
+            <p className="text-xs text-gray-600 font-medium">Baterai</p>
+          </div>
+
+          {/* Connection Status */}
+          <div
+            className={`rounded-lg p-5 border flex flex-col items-center justify-center transition-all ${
+              isOnline
+                ? "bg-gradient-to-br from-cyan-50 to-blue-100 border-blue-300"
+                : "bg-gradient-to-br from-orange-50 to-red-100 border-red-300"
+            }`}
+          >
+            {/* Icon */}
+            <div className="mb-3">
+              {isOnline ? (
+                <Wifi className="w-8 h-8 text-blue-600" />
+              ) : (
+                <WifiOff className="w-8 h-8 text-red-600" />
+              )}
+            </div>
+
+            {/* Status Badge */}
+            <div className="mb-3">
+              <span
+                className={`text-sm font-bold px-3 py-1.5 rounded-full transition-all ${
+                  isOnline
+                    ? "bg-green-200 text-green-700"
+                    : "bg-red-200 text-red-700"
+                }`}
+              >
+                {isOnline ? "Online" : "Offline"}
+              </span>
+            </div>
+
+            {/* CSQ Info */}
+            <div
+              className={`px-3 py-2 rounded-lg text-xs font-bold mb-2 ${getRssiStatus(rssi).bgColor} ${getRssiStatus(rssi).color}`}
+            >
+              <div className="flex flex-col items-center gap-1">
+                <span>CSQ: {rssi}</span>
+                <span className="text-xs">{getRssiStatus(rssi).status}</span>
               </div>
             </div>
-            <span
-              className={`font-bold text-sm ${isOnline ? "text-green-600" : "text-red-600"}`}
-            >
-              {isOnline ? "Online" : "Offline"}
-            </span>
+
+            {/* Label */}
+            <p className="text-xs text-gray-600 font-medium">Sinyal</p>
           </div>
         </div>
       </div>
@@ -627,7 +829,6 @@ export default function Dashboard() {
       {/* Status Lahan Section */}
       <div className="bg-white rounded-lg shadow-md p-6 border border-gray-100">
         <div className="flex items-center gap-2 mb-6">
-          <span className="text-2xl">🌍</span>
           <h2 className="text-xl font-semibold">Status Lahan</h2>
         </div>
 
@@ -636,8 +837,9 @@ export default function Dashboard() {
           <div
             className={`border-2 rounded-lg p-5 ${getKolamBlockColor(currentPH).border} ${getKolamBlockColor(currentPH).bg}`}
           >
-            <h3 className="text-lg font-bold text-blue-900 mb-4">
-              🏞️ Kolam Ikan
+            <h3 className="text-lg font-bold text-blue-900 mb-4 flex items-center gap-2">
+              <Fish className="w-5 h-5" />
+              Kolam Ikan
             </h3>
 
             {/* Determine Kolam status and recommendations */}
@@ -708,8 +910,9 @@ export default function Dashboard() {
           <div
             className={`border-2 rounded-lg p-5 ${getSawahBlockColor(currentPH).border} ${getSawahBlockColor(currentPH).bg}`}
           >
-            <h3 className="text-lg font-bold text-green-900 mb-4">
-              🌾 Sawah Padi
+            <h3 className="text-lg font-bold text-green-900 mb-4 flex items-center gap-2">
+              <Sprout className="w-5 h-5" />
+              Sawah Padi
             </h3>
 
             {/* Determine Sawah status and recommendations */}

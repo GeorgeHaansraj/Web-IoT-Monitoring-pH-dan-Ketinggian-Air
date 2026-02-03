@@ -319,14 +319,14 @@ export default function ProfilePage() {
 
       {/* Dialog Riwayat pH */}
       <Dialog open={showPhHistory} onOpenChange={setShowPhHistory}>
-        <DialogContent className="max-w-2xl max-h-96 overflow-hidden flex flex-col">
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <FlaskConical className="w-5 h-5 text-purple-600" />
               Riwayat pH
             </DialogTitle>
           </DialogHeader>
-          <div className="flex-1 overflow-y-auto py-4">
+          <div className="flex-1 overflow-y-auto py-4 w-full">
             <PHHistoryGraph />
           </div>
           <DialogFooter>

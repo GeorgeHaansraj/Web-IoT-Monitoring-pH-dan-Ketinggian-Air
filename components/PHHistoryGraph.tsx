@@ -41,12 +41,13 @@ export default function PHHistoryGraph() {
       const response = await fetch(`/api/ph-history?range=${range}&limit=100`);
 
       if (!response.ok) {
-        throw new Error("Failed to fetch pH history");
+        throw new Error(`HTTP ${response.status}: Failed to fetch pH history`);
       }
 
       const result = await response.json();
       console.log(
-        `[PH-HISTORY] Fetched ${result.dataPoints} data points for ${range}`,
+        `[PH-HISTORY] Fetched ${result.dataPoints} data points for ${range}:`,
+        result.data,
       );
 
       // Format data untuk chart
@@ -55,264 +56,20 @@ export default function PHHistoryGraph() {
         t: point.label,
       }));
 
+      if (formattedData.length === 0) {
+        console.warn(
+          `[PH-HISTORY] No data points available for range: ${range}`,
+        );
+      }
+
       setData(formattedData);
     } catch (err) {
       console.error("[PH-HISTORY] Error fetching data:", err);
       setError(err instanceof Error ? err.message : "Unknown error");
-      // Fallback ke dummy data untuk development
-      setData(getDummyData(range));
+      setData([]); // Set empty array instead of dummy data
     } finally {
       setLoading(false);
     }
-  };
-
-  /**
-   * Dummy data fallback untuk development
-   */
-  const getDummyData = (range: TimeRange): PhDataPoint[] => {
-    const dataMapping = {
-      hour: Array.from({ length: 24 }, (_, i) => ({
-        timestamp: `${i.toString().padStart(2, "0")}:00`,
-        label: `${i.toString().padStart(2, "0")}:00`,
-        t: `${i.toString().padStart(2, "0")}:00`,
-        ph: 7 + Math.random() * 0.4 - 0.2,
-        min: 6.8,
-        max: 7.2,
-        count: 1,
-      })),
-      day: [
-        {
-          timestamp: "Minggu",
-          label: "Minggu",
-          t: "Minggu",
-          ph: 7.1,
-          min: 6.9,
-          max: 7.3,
-          count: 1,
-        },
-        {
-          timestamp: "Senin",
-          label: "Senin",
-          t: "Senin",
-          ph: 7.3,
-          min: 7.1,
-          max: 7.5,
-          count: 1,
-        },
-        {
-          timestamp: "Selasa",
-          label: "Selasa",
-          t: "Selasa",
-          ph: 7.0,
-          min: 6.8,
-          max: 7.2,
-          count: 1,
-        },
-        {
-          timestamp: "Rabu",
-          label: "Rabu",
-          t: "Rabu",
-          ph: 7.4,
-          min: 7.2,
-          max: 7.6,
-          count: 1,
-        },
-        {
-          timestamp: "Kamis",
-          label: "Kamis",
-          t: "Kamis",
-          ph: 7.2,
-          min: 7.0,
-          max: 7.4,
-          count: 1,
-        },
-        {
-          timestamp: "Jumat",
-          label: "Jumat",
-          t: "Jumat",
-          ph: 7.1,
-          min: 6.9,
-          max: 7.3,
-          count: 1,
-        },
-        {
-          timestamp: "Sabtu",
-          label: "Sabtu",
-          t: "Sabtu",
-          ph: 7.3,
-          min: 7.1,
-          max: 7.5,
-          count: 1,
-        },
-      ],
-      month: [
-        {
-          timestamp: "Januari",
-          label: "Januari",
-          t: "Januari",
-          ph: 7.0,
-          min: 6.8,
-          max: 7.2,
-          count: 1,
-        },
-        {
-          timestamp: "Februari",
-          label: "Februari",
-          t: "Februari",
-          ph: 7.2,
-          min: 7.0,
-          max: 7.4,
-          count: 1,
-        },
-        {
-          timestamp: "Maret",
-          label: "Maret",
-          t: "Maret",
-          ph: 7.5,
-          min: 7.3,
-          max: 7.7,
-          count: 1,
-        },
-        {
-          timestamp: "April",
-          label: "April",
-          t: "April",
-          ph: 7.1,
-          min: 6.9,
-          max: 7.3,
-          count: 1,
-        },
-        {
-          timestamp: "Mei",
-          label: "Mei",
-          t: "Mei",
-          ph: 6.8,
-          min: 6.6,
-          max: 7.0,
-          count: 1,
-        },
-        {
-          timestamp: "Juni",
-          label: "Juni",
-          t: "Juni",
-          ph: 7.3,
-          min: 7.1,
-          max: 7.5,
-          count: 1,
-        },
-        {
-          timestamp: "Juli",
-          label: "Juli",
-          t: "Juli",
-          ph: 7.4,
-          min: 7.2,
-          max: 7.6,
-          count: 1,
-        },
-        {
-          timestamp: "Agustus",
-          label: "Agustus",
-          t: "Agustus",
-          ph: 7.2,
-          min: 7.0,
-          max: 7.4,
-          count: 1,
-        },
-        {
-          timestamp: "September",
-          label: "September",
-          t: "September",
-          ph: 7.0,
-          min: 6.8,
-          max: 7.2,
-          count: 1,
-        },
-        {
-          timestamp: "Oktober",
-          label: "Oktober",
-          t: "Oktober",
-          ph: 7.1,
-          min: 6.9,
-          max: 7.3,
-          count: 1,
-        },
-        {
-          timestamp: "November",
-          label: "November",
-          t: "November",
-          ph: 6.9,
-          min: 6.7,
-          max: 7.1,
-          count: 1,
-        },
-        {
-          timestamp: "Desember",
-          label: "Desember",
-          t: "Desember",
-          ph: 7.0,
-          min: 6.8,
-          max: 7.2,
-          count: 1,
-        },
-      ],
-      year: [
-        {
-          timestamp: "2021",
-          label: "2021",
-          t: "2021",
-          ph: 7.2,
-          min: 7.0,
-          max: 7.4,
-          count: 1,
-        },
-        {
-          timestamp: "2022",
-          label: "2022",
-          t: "2022",
-          ph: 7.0,
-          min: 6.8,
-          max: 7.2,
-          count: 1,
-        },
-        {
-          timestamp: "2023",
-          label: "2023",
-          t: "2023",
-          ph: 7.5,
-          min: 7.3,
-          max: 7.7,
-          count: 1,
-        },
-        {
-          timestamp: "2024",
-          label: "2024",
-          t: "2024",
-          ph: 7.1,
-          min: 6.9,
-          max: 7.3,
-          count: 1,
-        },
-        {
-          timestamp: "2025",
-          label: "2025",
-          t: "2025",
-          ph: 6.8,
-          min: 6.6,
-          max: 7.0,
-          count: 1,
-        },
-        {
-          timestamp: "2026",
-          label: "2026",
-          t: "2026",
-          ph: 7.3,
-          min: 7.1,
-          max: 7.5,
-          count: 1,
-        },
-      ],
-    };
-    return dataMapping[range];
   };
 
   /**
@@ -374,7 +131,7 @@ export default function PHHistoryGraph() {
       {/* Kontainer Scroll */}
       <div className="w-full overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-300 scrollbar-track-transparent">
         <div style={{ minWidth: getMinWidth() }}>
-          <div className="h-70 w-full">
+          <div className="h-96 w-full">
             {loading ? (
               <div className="flex items-center justify-center h-full text-slate-400">
                 <span>Memuat data pH...</span>
