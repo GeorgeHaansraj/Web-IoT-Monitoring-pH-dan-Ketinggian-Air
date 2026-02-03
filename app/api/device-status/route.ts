@@ -3,7 +3,6 @@ import { prisma } from "@/lib/prisma";
 
 export async function GET() {
   try {
-    // Get device status from database
     try {
       const deviceStatus = await prisma.deviceStatus.findUnique({
         where: {

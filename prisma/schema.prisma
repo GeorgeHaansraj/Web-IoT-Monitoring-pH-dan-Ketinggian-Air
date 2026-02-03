@@ -32,45 +32,43 @@ model User {
 model PHReading {
   id          String   @id @default(cuid())
   value       Float
-  location    String   // "kolam" or "sawah"
+  location    String // "kolam" or "sawah"
   timestamp   DateTime @default(now())
   deviceId    String?
   temperature Float?
-  
+
   @@map("ph_readings")
 }
 
 model WaterLevelReading {
-  id          String   @id @default(cuid())
-  level       Float    // in cm or meters
-  location    String   // "kolam" or "sawah"
-  timestamp   DateTime @default(now())
-  deviceId    String?
-  status      String   @default("normal") // "low", "normal", "high", "critical"
+  id        String   @id @default(cuid())
+  level     Float // in cm or meters
+  timestamp DateTime @default(now())
   
   @@map("water_level_readings")
 }
 
 model Alert {
-  id          String   @id @default(cuid())
-  type        String   // "ph_high", "ph_low", "water_low", "water_high"
-  message     String
-  location    String
-  severity    String   @default("medium") // "low", "medium", "high", "critical"
-  isRead      Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  resolvedAt  DateTime?
-  
+  id         String    @id @default(cuid())
+  type       String // "ph_high", "ph_low", "water_low", "water_high"
+  message    String
+  location   String
+  severity   String    @default("medium") // "low", "medium", "high", "critical"
+  isRead     Boolean   @default(false)
+  createdAt  DateTime  @default(now())
+  resolvedAt DateTime?
+
   @@map("alerts")
 }
 
 model DeviceStatus {
   id         String   @id @default("global-device")
-  activeMode String   // "sawah" or "kolam"
-  battery    Float?   // Battery percentage
-  signal     Int?     // Signal strength
+  activeMode String // "sawah" or "kolam"
+  battery    Float? // Battery percentage
+  signal     Int? // Signal strength
+  pumpStatus Boolean   @default(false)
   lastUpdate DateTime @updatedAt
-  
+
   @@map("device_status")
 }
 model PumpStatus {
@@ -147,3 +145,4 @@ model AdminMessage {
   @@index([userId, createdAt])
   @@index([isRead])
 }
+

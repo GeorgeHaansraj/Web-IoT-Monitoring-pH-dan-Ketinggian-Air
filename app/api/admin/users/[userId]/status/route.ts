@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 
 export async function PATCH(
   request: Request,
-  { params }: { params: { userId: string } },
+  { params }: { params: Promise<{ userId: string }> },
 ) {
   try {
     const session = await auth();
@@ -17,7 +17,7 @@ export async function PATCH(
       );
     }
 
-    const { userId } = params;
+    const { userId } = await params;
     const { isActive } = await request.json();
 
     if (typeof isActive !== "boolean") {

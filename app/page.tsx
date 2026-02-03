@@ -336,7 +336,6 @@ export default function Dashboard() {
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [isPumpOn]);
-
   if (status === "loading") {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -714,17 +713,15 @@ export default function Dashboard() {
             {adminMessages.map((message) => (
               <div
                 key={message.id}
-                className={`p-4 rounded-lg border-l-4 ${
-                  message.isRead
-                    ? "bg-white border-gray-300"
-                    : "bg-blue-100 border-blue-600"
-                }`}
+                className={`p-4 rounded-lg border-l-4 ${message.isRead
+                  ? "bg-white border-gray-300"
+                  : "bg-blue-100 border-blue-600"
+                  }`}
               >
                 <div className="flex justify-between items-start gap-2 mb-2">
                   <p
-                    className={`text-sm font-semibold ${
-                      message.isRead ? "text-gray-600" : "text-blue-900"
-                    }`}
+                    className={`text-sm font-semibold ${message.isRead ? "text-gray-600" : "text-blue-900"
+                      }`}
                   >
                     {new Date(message.createdAt).toLocaleString("id-ID")}
                   </p>
@@ -782,11 +779,10 @@ export default function Dashboard() {
 
           {/* Connection Status */}
           <div
-            className={`rounded-lg p-5 border flex flex-col items-center justify-center transition-all ${
-              isOnline
-                ? "bg-gradient-to-br from-cyan-50 to-blue-100 border-blue-300"
-                : "bg-gradient-to-br from-orange-50 to-red-100 border-red-300"
-            }`}
+            className={`rounded-lg p-5 border flex flex-col items-center justify-center transition-all ${isOnline
+              ? "bg-gradient-to-br from-cyan-50 to-blue-100 border-blue-300"
+              : "bg-gradient-to-br from-orange-50 to-red-100 border-red-300"
+              }`}
           >
             {/* Icon */}
             <div className="mb-3">
@@ -800,11 +796,10 @@ export default function Dashboard() {
             {/* Status Badge */}
             <div className="mb-3">
               <span
-                className={`text-sm font-bold px-3 py-1.5 rounded-full transition-all ${
-                  isOnline
-                    ? "bg-green-200 text-green-700"
-                    : "bg-red-200 text-red-700"
-                }`}
+                className={`text-sm font-bold px-3 py-1.5 rounded-full transition-all ${isOnline
+                  ? "bg-green-200 text-green-700"
+                  : "bg-red-200 text-red-700"
+                  }`}
               >
                 {isOnline ? "Online" : "Offline"}
               </span>
@@ -1018,9 +1013,8 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Droplet
-                className={`w-6 h-6 ${
-                  isPumpOn ? "text-blue-600" : "text-gray-400"
-                }`}
+                className={`w-6 h-6 ${isPumpOn ? "text-blue-600" : "text-gray-400"
+                  }`}
               />
               <div>
                 <h2 className="text-lg font-semibold">Kontrol Pompa</h2>
@@ -1032,14 +1026,12 @@ export default function Dashboard() {
             <Switch
               checked={isPumpOn}
               onCheckedChange={handlePumpToggle}
-              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors px-1 p-3 ${
-                isPumpOn ? "bg-blue-600" : "bg-gray-300"
-              }`}
+              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors px-1 p-3 ${isPumpOn ? "bg-blue-600" : "bg-gray-300"
+                }`}
             >
               <span
-                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
-                  isPumpOn ? "translate-x-6" : "translate-x-0"
-                }`}
+                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${isPumpOn ? "translate-x-6" : "translate-x-0"
+                  }`}
               />
             </Switch>
           </div>
