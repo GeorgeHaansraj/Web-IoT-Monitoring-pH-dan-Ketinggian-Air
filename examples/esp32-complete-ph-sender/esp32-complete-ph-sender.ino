@@ -80,6 +80,8 @@ float readWaterLevel();
 void checkAlarm(float ph); // Ganti nama controlAlerts jadi checkAlarm biar konsisten? Atau pakai controlAlerts
 void displayLCD(); // Wrapper function
 void controlAlerts(float ph);
+// --- VARIABEL TAMBAHAN UNTUK FIX SINKRONISASI ---
+String lastSyncMode = "HARDWARE_PRIORITY"; // Default awal
 
 // Fungsi sort array
 void sortArray(int *a, int n) {
@@ -241,18 +243,18 @@ void handleButtonPress() {
 void updateLimits() {
   if (currentManualState == KOLAM) {
     // Standar Kolam: 6.5 - 8.5 Aman (Mantap)
-    limitBawah = 6.5; 
+    limitBawah = 6.5;
     limitAtas = 8.5;
-  } 
+  }
   else if (currentManualState == SAWAH) {
     // Standar Sawah: 5.5 - 7.0 Aman (Subur)
-    limitBawah = 5.5; 
+    limitBawah = 5.5;
     limitAtas = 7.0;
-  } 
+  }
   else if (currentManualState == SUMUR) {
     // Standar Sumur: 6.5 - 7.5 Aman (Jernih/Normal)
     // (Kita anggap 6.0-6.4 masih toleransi normal bawah agar tidak berisik)
-    limitBawah = 6.0; 
+    limitBawah = 6.0;
     limitAtas = 7.5;
   }
 }
@@ -294,14 +296,14 @@ void checkAlarm(float ph) {
 // --- 7. RUN MANUAL MODE (FINAL: 3 MODE SPESIFIK) ---
 void runManualMode() {
   // 1. Update limit dan baca data
-  updateLimits(); 
+  updateLimits();
   phValue = readRawPH() + calibrationOffset;
   int batLevel = getBatteryPercentage(readBatteryVoltage());
 
   // ==========================================
   // A. LOGIKA TAMPILAN HEADER (BATTERY KANAN)
   // ==========================================
-  String header = "M:"; 
+  String header = "M:";
   if (currentManualState == SAWAH) header += "SAWAH";
   else if (currentManualState == SUMUR) header += "SUMUR";
   else if (currentManualState == KOLAM) header += "KOLAM";
@@ -312,7 +314,7 @@ void runManualMode() {
   if (spaces < 0) spaces = 0;
 
   for (int i = 0; i < spaces; i++) header += " ";
-  header += batText; 
+  header += batText;
 
   lcd.setCursor(0, 0);
   lcd.print(header);
@@ -326,7 +328,7 @@ void runManualMode() {
   lcd.print(" "); // Spasi pemisah
 
   // --- CABANG LOGIKA UTAMA (Sesuai Request) ---
-  
+
   if (currentManualState == KOLAM) {
     // Pin 25: KOLAM IKAN
     if (phValue < 4.0)       lcd.print("Ganti Air"); // Bahaya -> Ganti Air
@@ -334,7 +336,7 @@ void runManualMode() {
     else if (phValue <= 6.4) lcd.print("Kapur Sdk"); // Krg Nafsu -> Kapur Sedikit
     else if (phValue <= 8.5) lcd.print("Mantap   "); // Bagus
     else                     lcd.print("+Air Baru"); // Keras -> Tambah Air Baru
-  } 
+  }
   else if (currentManualState == SAWAH) {
     // Pin 32: SAWAH PADI
     if (phValue < 4.5)       lcd.print("Kapur Tgg"); // Rusak -> Kapur Dosis Tinggi
@@ -444,39 +446,57 @@ void loop() {
   if (currentSysMode == MODE_MANUAL) {
     runManualMode();
   } else {
-    // === MODE IOT ===
+    // ==========================================
+    // ===            MODE IOT                ===
+    // ==========================================
 
-    // 1. Baca Sensor (GUNAKAN NAMA FUNGSI YANG BENAR)
-    phValue = readRawPH() + calibrationOffset; // [PERBAIKAN 3]
+    // 1. Baca Sensor
+    phValue = readRawPH() + calibrationOffset; 
     waterLevel = readWaterLevel();
-    int bat = getBatteryPercentage(readBatteryVoltage()); // [PERBAIKAN 4]
+    int bat = getBatteryPercentage(readBatteryVoltage()); 
 
-    // 2. Logic Alarm
     checkAlarm(phValue);
     displayLCD();
 
-    // 3. Pengiriman Data
+    // 2. Pengiriman Data
     if (millis() - lastSendTime > sendInterval) {
+      
       if (!modem.isGprsConnected()) {
+        Serial.println("GPRS putus, reconnecting...");
         modem.gprsConnect(apn, "", "");
         return;
       }
 
       int signal = modem.getSignalQuality();
-      bool isPumpOn = (digitalRead(PIN_RELAY) == LOW); // Feedback Relay
+
+      // --- [LOGIKA PENGIRIMAN CERDAS - THE FIX] ---
+      bool physicalState = (digitalRead(PIN_RELAY) == LOW); // True jika Nyala Fisik
+      bool reportStatus = false;
+
+      // KUNCI PERBAIKAN:
+      // Jika Server sedang mode HARDWARE (User tidak klik web), 
+      // kita WAJIB lapor kondisi fisik murni. Jangan pakai memori software yang mungkin nyangkut.
+      if (lastSyncMode == "HARDWARE_PRIORITY") {
+         reportStatus = physicalState;
+      } 
+      // Jika Server sedang mode WEB (User baru klik),
+      // kita boleh lapor 'True' jika software meminta True (walau fisik belum sempat nyala)
+      else {
+         reportStatus = physicalState || pumpStatus;
+      }
 
       Serial.println("\n[UPLOAD]");
-
+      
       String postData = "{";
       postData += "\"ph\":" + String(phValue, 2) + ",";
       postData += "\"battery\":" + String(bat) + ",";
       postData += "\"level\":" + String(waterLevel, 1) + ",";
       postData += "\"location\":\"" + currentLocLabel + "\",";
       postData += "\"signal\":" + String(signal) + ",";
-      postData += "\"pump_status\":" + String(isPumpOn ? "true" : "false");
+      postData += "\"pump_status\":" + String(reportStatus ? "true" : "false");
       postData += "}";
 
-      Serial.println(postData);
+      Serial.println(postData); // Debug JSON
 
       http.beginRequest();
       http.post(resource);
@@ -488,20 +508,49 @@ void loop() {
 
       int statusCode = http.responseStatusCode();
       String responseBody = http.responseBody();
+      
+      // Print Debug Lebih Bersih
       Serial.print("Status: "); Serial.println(statusCode);
-      Serial.print("Response: "); Serial.println(responseBody);
+      Serial.print("Resp: "); Serial.println(responseBody);
 
       if (statusCode == 200) {
         responseBody.toUpperCase();
-        if (responseBody.indexOf("ON") >= 0 && responseBody.indexOf("OFF") == -1) {
-          digitalWrite(PIN_RELAY, LOW); // Nyala (Aktif LOW)
-          pumpStatus = true;
-          lcd.setCursor(0, 0); lcd.print("CMD: POMPA ON ");
+
+        // 1. UPDATE MODE SINKRONISASI (PENTING!)
+        if (responseBody.indexOf("WEB_PRIORITY") >= 0) {
+            lastSyncMode = "WEB_PRIORITY";
+        } else {
+            lastSyncMode = "HARDWARE_PRIORITY";
         }
-        else if (responseBody.indexOf("OFF") >= 0) {
-          digitalWrite(PIN_RELAY, HIGH); // Mati
-          pumpStatus = false;
-          lcd.setCursor(0, 0); lcd.print("CMD: POMPA OFF");
+
+        // 2. EKSEKUSI PERINTAH
+        // ON COMMAND
+        if (responseBody.indexOf("\"COMMAND\":\"ON\"") >= 0 || responseBody.indexOf("ON") >= 0) {
+          if (responseBody.indexOf("OFF") == -1) {
+             if (digitalRead(PIN_RELAY) != LOW) digitalWrite(PIN_RELAY, LOW); 
+             pumpStatus = true;
+             
+             // Debugging message yang jujur
+             if (lastSyncMode == "WEB_PRIORITY") Serial.println(">> ACTION: ON (Disuruh Web)");
+             else Serial.println(">> ACTION: ON (Mengikuti Hardware)");
+          }
+        }
+
+        // OFF COMMAND
+        else if (responseBody.indexOf("\"COMMAND\":\"OFF\"") >= 0 || responseBody.indexOf("OFF") >= 0) {
+          if (responseBody.indexOf("ON") == -1) {
+             if (digitalRead(PIN_RELAY) != HIGH) digitalWrite(PIN_RELAY, HIGH);
+             pumpStatus = false;
+             
+             if (lastSyncMode == "WEB_PRIORITY") Serial.println(">> ACTION: OFF (Disuruh Web)");
+             else Serial.println(">> ACTION: OFF (Mengikuti Hardware)");
+          }
+        }
+        
+        // 3. FORCE SYNC (Anti Zombie)
+        // Jika mode hardware, paksa software memory sama dengan fisik
+        if (lastSyncMode == "HARDWARE_PRIORITY") {
+            pumpStatus = physicalState;
         }
       }
       lastSendTime = millis();
