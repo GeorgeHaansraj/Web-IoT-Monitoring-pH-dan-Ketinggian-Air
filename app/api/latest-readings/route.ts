@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
 
         // Fetch latest pH reading (MonitoringLog)
         const latestPH = await prisma.monitoringLog.findFirst({
-            where: { location },
+            where: { deviceId: location },
             orderBy: { created_at: 'desc' },
         });
 

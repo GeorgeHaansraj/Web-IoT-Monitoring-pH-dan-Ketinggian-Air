@@ -30,7 +30,7 @@ export async function POST(request: NextRequest) {
     const reading = await prisma.monitoringLog.create({
       data: {
         ph_value: parseFloat(value),
-        location,
+        deviceId: location,
         battery_level: battery ? parseFloat(battery) : null,
         temperature: temperature ? parseFloat(temperature) : null,
       },
