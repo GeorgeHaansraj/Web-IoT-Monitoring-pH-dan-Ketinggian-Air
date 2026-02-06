@@ -36,6 +36,9 @@ export default function Dashboard() {
   const [currentPH, setCurrentPH] = useState(7.0);
   const [isPumpOn, setIsPumpOn] = useState(false);
   const [isManualMode, setIsManualMode] = useState(false);
+  const [pumpDuration, setPumpDuration] = useState<number | null>(null);
+  const [pumpStartTime, setPumpStartTime] = useState<string | null>(null);
+  const [remainingTime, setRemainingTime] = useState<string>("");
   const [waterLevel, setWaterLevel] = useState(0);
   const [showDurationModal, setShowDurationModal] = useState(false);
   const [isTogglingPump, setIsTogglingPump] = useState(false);
@@ -229,6 +232,14 @@ export default function Dashboard() {
             console.log("[PUMP] Status changed in DB, updating UI:", data.isOn);
             setIsPumpOn(data.isOn);
             setIsManualMode(data.isManualMode ?? false);
+            setPumpDuration(data.pumpDuration);
+            setPumpStartTime(data.pumpStartTime);
+          } else {
+            // Even if status didn't change, update timer details in case of refresh
+            if (data.isOn) {
+              setPumpDuration(data.pumpDuration);
+              setPumpStartTime(data.pumpStartTime);
+            }
           }
         } else if (response.status === 401) {
           console.warn("[PUMP] Session invalid");
@@ -245,6 +256,40 @@ export default function Dashboard() {
 
     return () => clearInterval(pollInterval);
   }, [session?.user, isPumpOn]);
+
+  // Countdown Timer Logic
+  useEffect(() => {
+    if (!isPumpOn || isManualMode || !pumpStartTime || !pumpDuration) {
+      setRemainingTime("");
+      return;
+    }
+
+    const updateTimer = () => {
+      const start = new Date(pumpStartTime).getTime();
+      const now = Date.now();
+      const durationMs = pumpDuration * 60 * 60 * 1000;
+      const elapsed = now - start;
+      const remaining = durationMs - elapsed;
+
+      if (remaining <= 0) {
+        setRemainingTime("00:00:00");
+      } else {
+        const hours = Math.floor(remaining / (1000 * 60 * 60));
+        const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
+        setRemainingTime(
+          `${hours.toString().padStart(2, "0")}:${minutes
+            .toString()
+            .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+        );
+      }
+    };
+
+    updateTimer(); // Initial call
+    const timerInterval = setInterval(updateTimer, 1000);
+
+    return () => clearInterval(timerInterval);
+  }, [isPumpOn, isManualMode, pumpStartTime, pumpDuration]);
 
   // Simulasi real-time untuk baterai dan RSSI
   useEffect(() => {
@@ -1006,10 +1051,14 @@ export default function Dashboard() {
               />
               <div>
                 <h2 className="text-lg font-semibold">Kontrol Pompa</h2>
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-gray-500 font-medium">
                   {isTogglingPump
                     ? "Memproses..."
-                    : isPumpOn ? "Pompa Aktif" : "Pompa Mati"}
+                    : isPumpOn
+                      ? isManualMode
+                        ? "Pompa Aktif (Manual)"
+                        : `Sisa Waktu: ${remainingTime}`
+                      : "Pompa Mati"}
                 </p>
               </div>
             </div>
