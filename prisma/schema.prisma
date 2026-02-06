@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -14,25 +8,21 @@ datasource db {
 }
 
 model User {
-  id           String        @id @default(cuid())
-  email        String        @unique
-  name         String?
-  password     String
-  role         String        @default("user") // "user" or "admin"
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
-  
-  // Relasi untuk tracking pump control
-  pumpHistory  PumpHistory[]
-  
-  // Relasi untuk admin messages
+  id            String         @id @default(cuid())
+  email         String         @unique
+  name          String?
+  password      String
+  role          String         @default("user")
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   adminMessages AdminMessage[]
+  pumpHistory   PumpHistory[]
 }
 
 model PHReading {
   id          String   @id @default(cuid())
   value       Float
-  location    String // "kolam" or "sawah"
+  location    String
   timestamp   DateTime @default(now())
   deviceId    String?
   temperature Float?
@@ -42,18 +32,18 @@ model PHReading {
 
 model WaterLevelReading {
   id        String   @id @default(cuid())
-  level     Float // in cm or meters
+  level     Float
   timestamp DateTime @default(now())
-  
+
   @@map("water_level_readings")
 }
 
 model Alert {
   id         String    @id @default(cuid())
-  type       String // "ph_high", "ph_low", "water_low", "water_high"
+  type       String
   message    String
   location   String
-  severity   String    @default("medium") // "low", "medium", "high", "critical"
+  severity   String    @default("medium")
   isRead     Boolean   @default(false)
   createdAt  DateTime  @default(now())
   resolvedAt DateTime?
@@ -63,86 +53,96 @@ model Alert {
 
 model DeviceStatus {
   id         String   @id @default("global-device")
-  activeMode String // "sawah" or "kolam"
-  battery    Float? // Battery percentage
-  signal     Int? // Signal strength
-  pumpStatus Boolean   @default(false)
+  activeMode String
+  battery    Float?
+  signal     Int?
   lastUpdate DateTime @updatedAt
+  pumpStatus Boolean  @default(false)
 
   @@map("device_status")
 }
+
 model PumpStatus {
-  id            String   @id @default(cuid())
-  mode          String   @unique // "sawah" or "kolam"
-  isOn          Boolean  @default(false)
-  updatedAt     DateTime @updatedAt
-  createdAt     DateTime @default(now())
-  
-  // NEW: Duration tracking for timed pump control
-  pumpDuration  Int?     // Duration in hours (null = manual/indefinite)
-  pumpStartTime DateTime? // When pump was turned ON (for calculating auto-OFF)
-  isManualMode  Boolean  @default(false) // true = manual (no auto-OFF by duration), false = timed
-  
+  id            String    @id @default(cuid())
+  mode          String    @unique
+  isOn          Boolean   @default(false)
+  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime  @default(now())
+  isManualMode  Boolean   @default(false)
+  pumpDuration  Int?
+  pumpStartTime DateTime?
+
   @@map("pump_status")
 }
 
 model DeviceControl {
   id        String   @id @default(cuid())
-  deviceId  String?  // "ESP32-KKN-01" atau null untuk global
-  mode      String?  // "sawah", "kolam", atau null untuk global
-  command   String   @default("OFF")  // "ON", "OFF", "STANDBY"
+  deviceId  String?
+  mode      String?
+  command   String   @default("OFF")
   updatedAt DateTime @updatedAt
   createdAt DateTime @default(now())
-  
-  // Metadata untuk tracking
-  actionBy  String?  // User ID atau "system" atau "esp32"
-  reason    String?  // Alasan command dikirim (opsional)
-  
-  @@map("device_controls")
-  @@unique([deviceId, mode]) // Satu command per device+mode combo
+  actionBy  String?
+  reason    String?
+
+  @@unique([deviceId, mode])
   @@index([updatedAt])
+  @@map("device_controls")
 }
 
 model PumpHistory {
-  id           String   @id @default(cuid())
-  mode         String   // "sawah" or "kolam"
+  id            String   @id @default(cuid())
+  mode          String
   previousState Boolean
-  newState     Boolean
-  changedBy    String   @default("dashboard") // "dashboard", "esp", "manual"
-  userId       String?
-  user         User?    @relation(fields: [userId], references: [id])
-  timestamp    DateTime @default(now())
-  
-  @@map("pump_history")
+  newState      Boolean
+  changedBy     String   @default("dashboard")
+  userId        String?
+  timestamp     DateTime @default(now())
+  user          User?    @relation(fields: [userId], references: [id])
+
   @@index([mode, timestamp])
   @@index([userId])
+  @@map("pump_history")
 }
 
 model MonitoringLog {
-  id             String   @id @default(cuid())
-  battery_level  Float?   // Battery percentage (0-100)
-  ph_value       Float?   // pH value (0-14)
-  level          Float?   // Water level in cm
-  temperature    Float?   // Temperature from pH sensor (optional, may not exist in old schemas)
-  signal_strength Int?    // Signal quality (CSQ)
-  created_at     DateTime @default(now())
-  deviceId       String?  // Device identifier
-  
-  @@map("monitoring_logs")
+  id              String   @id @default(cuid())
+  battery_level   Float?
+  ph_value        Float?
+  level           Float?
+  temperature     Float?
+  signal_strength Int?
+  created_at      DateTime @default(now())
+  deviceId        String?
+  pump_status     String?  @default("false")
+
   @@index([created_at])
+  @@map("monitoring_logs")
 }
 
 model AdminMessage {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  message   String   @db.Text
-  isRead    Boolean  @default(false)
+  message   String
+  isRead    Boolean   @default(false)
   readAt    DateTime?
-  createdAt DateTime @default(now())
-  
-  @@map("admin_messages")
+  createdAt DateTime  @default(now())
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
   @@index([userId, createdAt])
   @@index([isRead])
+  @@map("admin_messages")
 }
 
+model PumpTimer {
+  id           String    @id @default(dbgenerated("(gen_random_uuid())::text"))
+  mode         String    @unique
+  duration     Int?
+  startTime    DateTime?
+  isManualMode Boolean   @default(false)
+  updatedAt    DateTime  @default(now()) @updatedAt
+  createdAt    DateTime  @default(now())
+
+  @@index([mode], map: "idx_pump_timers_mode")
+  @@map("pump_timers")
+}

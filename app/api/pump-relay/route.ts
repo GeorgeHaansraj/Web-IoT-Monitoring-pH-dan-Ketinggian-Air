@@ -4,6 +4,7 @@ import { auth } from "@/auth";
 
 // Konfigurasi Bridge PHP
 const BRIDGE_URL = process.env.BRIDGE_PHP_URL || "http://20.2.138.40";
+const PUMP_MODE = "PUMP"; // ESP32 convention: mode is always "PUMP"
 
 /**
  * Trigger kontrol relay ke PHP Bridge
@@ -47,41 +48,72 @@ export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const mode = searchParams.get("mode") || "sawah";
 
-    // Ambil status pompa terbaru dari database
-    let pumpStatus = await prisma.pumpStatus.findUnique({
-      where: { mode },
+    // Ambil status command dari DeviceControls (ESP32 convention)
+    const deviceControl = await prisma.deviceControl.findUnique({
+      where: {
+        deviceId_mode: {
+          deviceId: mode, // "sawah" or "kolam"
+          mode: PUMP_MODE, // Always "PUMP"
+        },
+      },
     });
 
-    if (!pumpStatus) {
-      return NextResponse.json(
-        { mode, isOn: false, message: "Data pompa tidak ditemukan" },
-        { status: 404 },
-      );
+    // Ambil timer info dari PumpTimer
+    const pumpTimer = await prisma.pumpTimer.findUnique({
+      where: { mode: mode },
+    });
+
+    // Default values jika data tidak ditemukan
+    let isOn = false;
+    let isManualMode = true;
+    let pumpDuration = null;
+    let pumpStartTime = null;
+
+    if (deviceControl) {
+      isOn = deviceControl.command === "ON";
     }
 
-    // Auto-OFF logic untuk timed mode
+    if (pumpTimer) {
+      isManualMode = pumpTimer.isManualMode;
+      pumpDuration = pumpTimer.duration;
+      pumpStartTime = pumpTimer.startTime;
+    }
+
+    // AUTO-OFF Logic: Cek apakah timer sudah habis
     if (
-      pumpStatus.isOn &&
-      !pumpStatus.isManualMode &&
-      pumpStatus.pumpStartTime &&
-      pumpStatus.pumpDuration
+      isOn &&
+      !isManualMode &&
+      pumpStartTime &&
+      pumpDuration
     ) {
-      const elapsed =
-        (Date.now() - pumpStatus.pumpStartTime.getTime()) / (1000 * 60 * 60); // dalam jam
-      if (elapsed > pumpStatus.pumpDuration) {
-        // Auto-OFF: waktu habis
+      const elapsed = (Date.now() - pumpStartTime.getTime()) / (1000 * 60 * 60); // dalam jam
+
+      if (elapsed > pumpDuration) {
         console.log(
-          `[PUMP] Auto-OFF duration expired for ${mode} (elapsed: ${elapsed.toFixed(2)}h, duration: ${pumpStatus.pumpDuration}h)`,
+          `[PUMP] Auto-OFF timer expired for ${mode} (elapsed: ${elapsed.toFixed(2)}h, duration: ${pumpDuration}h)`
         );
 
-        pumpStatus = await prisma.pumpStatus.update({
+        // Update DeviceControls ke OFF
+        await prisma.deviceControl.update({
+          where: {
+            deviceId_mode: {
+              deviceId: mode,
+              mode: PUMP_MODE,
+            },
+          },
+          data: {
+            command: "OFF",
+            updatedAt: new Date(),
+          },
+        });
+
+        // Reset PumpTimer
+        await prisma.pumpTimer.update({
           where: { mode },
           data: {
-            isOn: false,
-            updatedAt: new Date(),
+            duration: null,
+            startTime: null,
             isManualMode: false,
-            pumpDuration: null,
-            pumpStartTime: null,
           },
         });
 
@@ -99,16 +131,21 @@ export async function GET(req: NextRequest) {
 
         // Trigger hardware OFF
         await triggerBridgeRelay(mode, false);
+
+        // Update status untuk response
+        isOn = false;
+        pumpDuration = null;
+        pumpStartTime = null;
       }
     }
 
     return NextResponse.json({
-      mode: pumpStatus.mode,
-      isOn: pumpStatus.isOn,
-      updatedAt: pumpStatus.updatedAt,
-      isManualMode: pumpStatus.isManualMode,
-      pumpDuration: pumpStatus.pumpDuration,
-      pumpStartTime: pumpStatus.pumpStartTime,
+      mode: mode,
+      isOn: isOn,
+      updatedAt: deviceControl?.updatedAt || new Date(),
+      isManualMode: isManualMode,
+      pumpDuration: pumpDuration,
+      pumpStartTime: pumpStartTime,
     });
   } catch (error) {
     console.error("Error fetching pump status:", error);
@@ -135,10 +172,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // SECURITY: Any authenticated user can control pump, but we track who
-    // Admin controls are for viewing history and managing other users
     const userId = (session.user as { id?: string }).id;
-    const userName = (session.user as { name?: string }).name || "Unknown";
 
     const body = await req.json();
     const {
@@ -158,7 +192,6 @@ export async function POST(req: NextRequest) {
 
     // SECURITY: If turning ON, verify session is valid (heartbeat check)
     if (isOn) {
-      console.log("[PUMP] Heartbeat check - verifying session for ON command");
       if (!session || !session.user) {
         return NextResponse.json(
           { error: "Session invalid - cannot turn pump ON" },
@@ -167,101 +200,87 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Get current status untuk riwayat
-    const currentStatus = await prisma.pumpStatus.findUnique({
-      where: { mode },
+    // Get current status untuk riwayat comparison
+    const currentControl = await prisma.deviceControl.findUnique({
+      where: {
+        deviceId_mode: {
+          deviceId: mode,
+          mode: PUMP_MODE,
+        },
+      },
     });
 
-    const previousState = currentStatus?.isOn || false;
+    const previousState = currentControl?.command === "ON";
 
-    // SECURITY: Check pump timeout (24 hours) - auto-OFF if exceeded
-    const PUMP_TIMEOUT_HOURS = 24;
-    const lastUpdate = currentStatus?.updatedAt
-      ? new Date(currentStatus.updatedAt)
-      : null;
-    if (lastUpdate && isOn && currentStatus?.isOn) {
-      const hoursSinceUpdate =
-        (Date.now() - lastUpdate.getTime()) / (1000 * 60 * 60);
-      if (hoursSinceUpdate > PUMP_TIMEOUT_HOURS) {
-        console.warn(
-          `[PUMP] Pump timeout exceeded (${hoursSinceUpdate.toFixed(1)}h), auto-turning OFF`,
-        );
-        // Auto turn off pump
-        const timeoutPumpStatus = await prisma.pumpStatus.update({
-          where: { mode },
-          data: {
-            isOn: false,
-            updatedAt: new Date(),
-          },
-        });
-
-        // Log timeout event
-        await prisma.pumpHistory.create({
-          data: {
-            mode,
-            previousState: true,
-            newState: false,
-            changedBy: "auto-timeout",
-            userId: userId || null,
-            timestamp: new Date(),
-          },
-        });
-
-        return NextResponse.json(
-          {
-            success: true,
-            message: `Pompa ${mode} dimatikan otomatis (timeout ${PUMP_TIMEOUT_HOURS}h)`,
-            data: {
-              mode: timeoutPumpStatus.mode,
-              isOn: timeoutPumpStatus.isOn,
-              updatedAt: timeoutPumpStatus.updatedAt,
-              reason: "timeout",
-            },
-          },
-          { status: 200 },
-        );
-      }
-    }
-
-    // Update atau buat status pompa
-    const pumpStatus = await prisma.pumpStatus.upsert({
-      where: { mode },
+    // Update DeviceControls (Command Status) - ESP32 convention
+    const deviceControl = await prisma.deviceControl.upsert({
+      where: {
+        deviceId_mode: {
+          deviceId: mode, // "sawah" or "kolam"
+          mode: PUMP_MODE, // Always "PUMP"
+        },
+      },
       update: {
-        isOn: isOn,
+        command: isOn ? "ON" : "OFF",
+        actionBy: userId,
+        reason: changedBy,
         updatedAt: new Date(),
-        isManualMode: isOn ? isManualMode : false,
-        pumpDuration: isOn ? (isManualMode ? null : duration) : null,
-        pumpStartTime: isOn ? new Date() : null,
       },
       create: {
-        mode,
-        isOn: isOn,
+        deviceId: mode, // "sawah" or "kolam"
+        mode: PUMP_MODE, // Always "PUMP"
+        command: isOn ? "ON" : "OFF",
+        actionBy: userId,
+        reason: changedBy,
+      },
+    });
+
+    // Update PumpTimer (Timer Logic)
+    await prisma.pumpTimer.upsert({
+      where: { mode: mode },
+      update: {
+        duration: isOn ? (isManualMode ? null : duration) : null,
+        startTime: isOn ? new Date() : null,
         isManualMode: isOn ? isManualMode : false,
-        pumpDuration: isOn ? (isManualMode ? null : duration) : null,
-        pumpStartTime: isOn ? new Date() : null,
+        updatedAt: new Date(),
+      },
+      create: {
+        mode: mode,
+        duration: isOn ? (isManualMode ? null : duration) : null,
+        startTime: isOn ? new Date() : null,
+        isManualMode: isOn ? isManualMode : false,
       },
     });
 
     // Simpan ke history jika status berubah
     if (previousState !== isOn) {
+      // Verify user exists before creating history (to avoid foreign key constraint error)
+      let validUserId = null;
+      if (userId) {
+        const userExists = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { id: true },
+        });
+        validUserId = userExists ? userId : null;
+      }
+
       await prisma.pumpHistory.create({
         data: {
           mode,
           previousState: previousState,
           newState: isOn,
           changedBy,
-          userId: userId || null, // Capture user ID dari session
+          userId: validUserId,
           timestamp: new Date(),
         },
       });
 
-      // TAMBAHAN: Trigger PHP Bridge untuk kontrol hardware
+      // Trigger PHP Bridge untuk kontrol hardware
       console.log(`[PUMP] Memicu Bridge untuk mengontrol relay...`);
       const bridgeSuccess = await triggerBridgeRelay(mode, isOn);
 
       if (!bridgeSuccess) {
         console.warn(`[PUMP] Bridge gagal, tapi database sudah updated`);
-        // Jangan error, database sudah tersimpan
       }
     }
 
@@ -270,9 +289,9 @@ export async function POST(req: NextRequest) {
         success: true,
         message: `Pompa ${mode} ${isOn ? "dihidupkan" : "dimatikan"}`,
         data: {
-          mode: pumpStatus.mode,
-          isOn: pumpStatus.isOn,
-          updatedAt: pumpStatus.updatedAt,
+          mode: deviceControl.mode,
+          isOn: deviceControl.command === "ON",
+          updatedAt: deviceControl.updatedAt,
         },
       },
       { status: 200 },
