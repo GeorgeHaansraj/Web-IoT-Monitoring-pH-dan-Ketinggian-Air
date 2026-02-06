@@ -239,31 +239,8 @@ export default function Dashboard() {
       }
     };
 
-    // Also poll device-control to check for command expiry (2-hour timeout safety)
-    const pollCommandState = async () => {
-      try {
-        const response = await fetch("/api/device-control?mode=sawah");
-        if (response.ok) {
-          const data = await response.json();
-          // IMPORTANT: If command is expired (age > 2 hours), database returns OFF
-          // This ensures UI button resets even if user forgets or manually set ON
-          if (data.command === "OFF" && isPumpOn) {
-            console.warn(
-              `[COMMAND] State expired (age: ${data.age_seconds}s), resetting UI to OFF`,
-            );
-            setIsPumpOn(false);
-            setIsManualMode(false);
-          }
-        }
-      } catch (error) {
-        // Silent fail - this is just for safety monitoring
-        console.debug("[COMMAND] Expiry check error:", error);
-      }
-    };
-
     const pollInterval = setInterval(() => {
       pollPumpStatus();
-      pollCommandState();
     }, 5000); // Poll every 5s for faster sync
 
     return () => clearInterval(pollInterval);
@@ -303,40 +280,6 @@ export default function Dashboard() {
     const interval = setInterval(fetchMessages, 30000); // Poll every 30 seconds
     return () => clearInterval(interval);
   }, [session?.user]);
-
-  // Handle page unload for manual mode pump auto-OFF
-  useEffect(() => {
-    if (!isPumpOn) return; // Only add listener if pump is ON
-
-    const handleBeforeUnload = async (e: BeforeUnloadEvent) => {
-      // Fetch pump status to check if it's in manual mode
-      try {
-        const statusResponse = await fetch("/api/pump-relay?mode=sawah");
-        if (statusResponse.ok) {
-          const pumpData = await statusResponse.json();
-          // Only auto-OFF if in manual mode
-          if (pumpData.isManualMode) {
-            // Use keepalive to ensure the request completes even during page unload
-            await fetch("/api/pump-relay", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                mode: "sawah",
-                isOn: false,
-                changedBy: "auto-page-leave",
-              }),
-              keepalive: true,
-            });
-          }
-        }
-      } catch (error) {
-        console.error("[PUMP] Error during beforeunload:", error);
-      }
-    };
-
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
-  }, [isPumpOn]);
   if (status === "loading") {
     return (
       <div className="flex items-center justify-center min-h-screen">
