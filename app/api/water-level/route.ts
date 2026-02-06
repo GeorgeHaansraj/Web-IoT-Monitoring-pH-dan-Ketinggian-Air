@@ -6,17 +6,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get("limit") || "100");
 
-<<<<<<< HEAD
-    // Location filtering removed as field is deleted
-    const readings = await prisma.waterLevelReading.findMany({
-      orderBy: { timestamp: "desc" },
-      take: limit,
-    });
-
-    return NextResponse.json(readings);
-=======
     // Try to fetch water level readings dari monitoring_logs
-    // If table doesn't exist or query fails, return empty array
     try {
       const readings = await prisma.monitoringLog.findMany({
         where: {
@@ -38,7 +28,6 @@ export async function GET(request: NextRequest) {
       }
       throw dbError;
     }
->>>>>>> 4f2e4b791db4bbf99f0e54520b95e0a49a52380f
   } catch (error) {
     console.error("Error fetching water level readings:", error);
     return NextResponse.json(
@@ -51,7 +40,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { level, location, mode } = body; // deviceId removed
+    const { level, location, mode } = body;
 
     // Validasi input
     if (!level || level < 0) {
@@ -61,10 +50,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Tentukan status berdasarkan mode dan ketinggian air (for Alerts only)
+    // Tentukan status berdasarkan mode dan ketinggian air
     let status = "normal";
 
-    const activeMode = mode || location || "sawah"; // Fallback to sawah or location if mode not sent
+    const activeMode = mode || location || "sawah";
 
     if (activeMode === "sawah") {
       // Sawah: optimal 30-60cm
@@ -82,10 +71,10 @@ export async function POST(request: NextRequest) {
       else status = "very_high";
     }
 
-    const reading = await prisma.waterLevelReading.create({
+    const reading = await prisma.monitoringLog.create({
       data: {
         level: parseFloat(level),
-        // location, deviceId, status removed from schema
+        deviceId: activeMode,
       },
     });
 
@@ -109,7 +98,7 @@ export async function POST(request: NextRequest) {
         data: {
           type: typeMap[status] || "water_alert",
           message: `Level air ${status} di ${activeMode}: ${level}cm`,
-          location: activeMode, // Alert still needs location context
+          location: activeMode,
           severity: severityMap[status] || "medium",
         },
       });
