@@ -601,78 +601,113 @@ export default function Dashboard() {
       return;
     }
 
-    const isOn = !isPumpOn;
     setIsTogglingPump(true);
     setLastPumpToggle(now); // Record this toggle time
-    setIsPumpOn(isOn);
 
     try {
-      const response = await fetch("/api/pump-relay", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          mode: "sawah",
-          isOn: isOn,
-          changedBy: "dashboard",
-          duration: duration,
-          isManualMode: isManualMode,
-        }),
-      });
+      // STEP 1: Verify current database state first
+      console.log("[PUMP] Verifying database state before toggle...");
+      const verifyResponse = await fetch("/api/pump-relay?mode=sawah");
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
+      if (!verifyResponse.ok) {
+        throw new Error("Gagal memverifikasi status pompa dari database");
+      }
 
-        if (response.status === 401) {
-          toast.error("Session tidak valid. Silakan login kembali.");
-          router.push("/login");
-          return;
+      const dbState = await verifyResponse.json();
+      const dbIsOn = dbState.isOn;
+
+      // Sync UI with database if mismatch detected
+      if (dbIsOn !== isPumpOn) {
+        console.warn(
+          `[PUMP] State mismatch! UI: ${isPumpOn}, DB: ${dbIsOn}. Syncing...`
+        );
+        setIsPumpOn(dbIsOn);
+        toast.warning("Status disinkronkan dengan database");
+        setIsTogglingPump(false);
+        return; // Abort toggle, user must click again with synced state
+      }
+
+      // STEP 2: Proceed with toggle if states are synced
+      const isOn = !isPumpOn;
+      setIsPumpOn(isOn);
+
+      try {
+        const response = await fetch("/api/pump-relay", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            mode: "sawah",
+            isOn: isOn,
+            changedBy: "dashboard",
+            duration: duration,
+            isManualMode: isManualMode,
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+
+          if (response.status === 401) {
+            toast.error("Session tidak valid. Silakan login kembali.");
+            router.push("/login");
+            return;
+          }
+
+          throw new Error(
+            errorData.error || "Gagal mengirim status pompa ke server",
+          );
         }
 
-        throw new Error(
-          errorData.error || "Gagal mengirim status pompa ke server",
+        const data = await response.json();
+
+        // Store manual mode state
+        if (isOn) {
+          setIsManualMode(isManualMode);
+        }
+
+        if (isOn) {
+          const modeText = isManualMode
+            ? "(Manual)"
+            : duration
+              ? `(${duration} jam)`
+              : "";
+          toast("Pompa air dihidupkan " + modeText, {
+            style: {
+              background: "#ffffff",
+              color: "#2563eb",
+              border: "1px solid #1d4ed8",
+            },
+          });
+        } else {
+          toast("Pompa air dimatikan", {
+            style: {
+              background: "#ffffff",
+              color: "#2563eb",
+              border: "1px solid #1d4ed8",
+            },
+          });
+        }
+
+        console.log(`HTTP: Pump ${isOn ? "ON" : "OFF"} - Response:`, data);
+      } catch (error) {
+        console.error("Error sending pump status:", error);
+        setIsPumpOn(!isOn);
+        toast.error(
+          error instanceof Error ? error.message : "Gagal mengontrol pompa",
         );
+      } finally {
+        setIsTogglingPump(false);
       }
-
-      const data = await response.json();
-
-      // Store manual mode state
-      if (isOn) {
-        setIsManualMode(isManualMode);
-      }
-
-      if (isOn) {
-        const modeText = isManualMode
-          ? "(Manual)"
-          : duration
-            ? `(${duration} jam)`
-            : "";
-        toast("Pompa air dihidupkan " + modeText, {
-          style: {
-            background: "#ffffff",
-            color: "#2563eb",
-            border: "1px solid #1d4ed8",
-          },
-        });
-      } else {
-        toast("Pompa air dimatikan", {
-          style: {
-            background: "#ffffff",
-            color: "#2563eb",
-            border: "1px solid #1d4ed8",
-          },
-        });
-      }
-
-      console.log(`HTTP: Pump ${isOn ? "ON" : "OFF"} - Response:`, data);
-    } catch (error) {
-      console.error("Error sending pump status:", error);
-      setIsPumpOn(!isOn);
+    } catch (verifyError) {
+      // Handle verification errors
+      console.error("[PUMP] Verification error:", verifyError);
       toast.error(
-        error instanceof Error ? error.message : "Gagal mengontrol pompa",
+        verifyError instanceof Error
+          ? verifyError.message
+          : "Gagal memverifikasi status pompa"
       );
-    } finally {
       setIsTogglingPump(false);
     }
   };
