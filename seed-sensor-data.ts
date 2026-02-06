@@ -27,7 +27,7 @@ async function main() {
         const reading = await prisma.monitoringLog.create({
             data: {
                 ph_value: 7.0 + Math.random() * 0.6 - 0.3, // pH 6.7 - 7.3
-                location: 'sawah',
+                deviceId: 'sawah',
                 battery_level: 85.0 - (i * 0.5), // Simulated battery drain
                 created_at: timestamp,
             },
@@ -43,7 +43,7 @@ async function main() {
         const reading = await prisma.monitoringLog.create({
             data: {
                 ph_value: 7.2 + Math.random() * 0.8 - 0.4, // pH 6.8 - 7.6
-                location: 'kolam',
+                deviceId: 'kolam',
                 battery_level: 90.0 - (i * 0.4),
                 created_at: timestamp,
             },
