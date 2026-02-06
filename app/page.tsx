@@ -223,6 +223,9 @@ export default function Dashboard() {
     if (!session?.user) return;
 
     const pollPumpStatus = async () => {
+      // Don't poll/sync if we are currently toggling to prevent race conditions
+      if (isTogglingPump) return;
+
       try {
         const response = await fetch("/api/pump-relay?mode=sawah");
         if (response.ok) {
@@ -255,7 +258,7 @@ export default function Dashboard() {
     }, 5000); // Poll every 5s for faster sync
 
     return () => clearInterval(pollInterval);
-  }, [session?.user, isPumpOn]);
+  }, [session?.user, isPumpOn, isTogglingPump]);
 
   // Countdown Timer Logic
   useEffect(() => {
