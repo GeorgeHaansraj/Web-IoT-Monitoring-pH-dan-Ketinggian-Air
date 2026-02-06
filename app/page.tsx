@@ -39,6 +39,7 @@ export default function Dashboard() {
   const [waterLevel, setWaterLevel] = useState(0);
   const [showDurationModal, setShowDurationModal] = useState(false);
   const [isTogglingPump, setIsTogglingPump] = useState(false);
+  const [lastPumpToggle, setLastPumpToggle] = useState<number>(0); // Cooldown timer
   const [lastDataTimestamp, setLastDataTimestamp] = useState<number>(
     Date.now(),
   );
@@ -587,6 +588,14 @@ export default function Dashboard() {
     duration: number | null,
     isManualMode: boolean,
   ) => {
+    // Cooldown check: prevent rapid successive clicks (2 second minimum)
+    const now = Date.now();
+    const timeSinceLastToggle = now - lastPumpToggle;
+    if (timeSinceLastToggle < 2000) {
+      toast.info(`Tunggu ${Math.ceil((2000 - timeSinceLastToggle) / 1000)} detik`);
+      return;
+    }
+
     if (isTogglingPump) {
       toast.info("Sedang memproses...");
       return;
@@ -594,6 +603,7 @@ export default function Dashboard() {
 
     const isOn = !isPumpOn;
     setIsTogglingPump(true);
+    setLastPumpToggle(now); // Record this toggle time
     setIsPumpOn(isOn);
 
     try {
@@ -1019,14 +1029,19 @@ export default function Dashboard() {
               <div>
                 <h2 className="text-lg font-semibold">Kontrol Pompa</h2>
                 <p className="text-xs text-gray-500">
-                  {isPumpOn ? "Pompa Aktif" : "Pompa Mati"}
+                  {isTogglingPump
+                    ? "Memproses..."
+                    : isPumpOn ? "Pompa Aktif" : "Pompa Mati"}
                 </p>
               </div>
             </div>
             <Switch
               checked={isPumpOn}
               onCheckedChange={handlePumpToggle}
-              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors px-1 p-3 ${isPumpOn ? "bg-blue-600" : "bg-gray-300"
+              disabled={isTogglingPump}
+              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors px-1 p-3 ${isTogglingPump
+                ? "bg-gray-400 opacity-60 cursor-not-allowed"
+                : isPumpOn ? "bg-blue-600" : "bg-gray-300"
                 }`}
             >
               <span
