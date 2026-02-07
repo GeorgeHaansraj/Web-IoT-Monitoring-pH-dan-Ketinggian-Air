@@ -1,24 +1,3 @@
 {
-  "buildCommand": "bash build.sh",
-  "outputDirectory": ".next",
-  "env": {
-    "SKIP_ENV_VALIDATION": "true"
-  },
-  "functions": {
-    "app/api/**/route.ts": {
-      "memory": 512,
-      "maxDuration": 30
-    }
-  },
-  "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "no-cache, no-store, must-revalidate"
-        }
-      ]
-    }
-  ]
+  "outputDirectory": ".next"
 }
