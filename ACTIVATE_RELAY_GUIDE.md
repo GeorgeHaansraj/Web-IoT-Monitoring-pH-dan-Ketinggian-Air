@@ -8,7 +8,7 @@
 
 ## 📋 Executive Summary
 
-Sistem sudah siap untuk mengontrol relay pompa dari dashboard. Flow-nya:
+Sistem sudah siap untuk mengontrol relay pompa dari dashboard. Alurnya:
 
 ```
 User klik Pompa ON
