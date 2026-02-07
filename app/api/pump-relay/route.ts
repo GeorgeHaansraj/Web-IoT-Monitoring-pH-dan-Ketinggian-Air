@@ -80,17 +80,12 @@ export async function GET(req: NextRequest) {
     }
 
     // AUTO-OFF Logic: Cek apakah timer sudah habis
-    if (
-      isOn &&
-      !isManualMode &&
-      pumpStartTime &&
-      pumpDuration
-    ) {
-      const elapsed = (Date.now() - pumpStartTime.getTime()) / (1000 * 60 * 60); // dalam jam
+    if (isOn && !isManualMode && pumpStartTime && pumpDuration) {
+      const elapsed = (Date.now() - pumpStartTime.getTime()) / (1000 * 60); // dalam menit
 
       if (elapsed > pumpDuration) {
         console.log(
-          `[PUMP] Auto-OFF timer expired for ${mode} (elapsed: ${elapsed.toFixed(2)}h, duration: ${pumpDuration}h)`
+          `[PUMP] Auto-OFF timer expired for ${mode} (elapsed: ${elapsed.toFixed(2)}min, duration: ${pumpDuration}min)`,
         );
 
         // Update DeviceControls ke OFF
@@ -179,7 +174,7 @@ export async function POST(req: NextRequest) {
       mode = "sawah",
       isOn,
       changedBy = "dashboard",
-      duration = null,
+      duration = null, // Duration in MINUTES (converted from user's unit selection)
       isManualMode = false,
     } = body;
 

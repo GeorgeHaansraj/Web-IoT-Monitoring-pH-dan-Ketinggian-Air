@@ -458,6 +458,13 @@ void loop() {
     checkAlarm(phValue);
     displayLCD();
 
+    // --- TAMBAHKAN SERIAL PRINT DEBUG DI SINI ---
+    // Baris ini akan mencetak status setiap kali loop berjalan (sangat cepat)
+    bool currentStatus = (digitalRead(PIN_RELAY) == LOW) || pumpStatus;
+    Serial.print("DEBUG - Status Pompa saat ini: ");
+    Serial.println(currentStatus ? "HIDUP (ON)" : "MATI (OFF)");
+    // --------------------------------------------
+
     // 2. Pengiriman Data
     if (millis() - lastSendTime > sendInterval) {
       
@@ -492,8 +499,8 @@ void loop() {
       postData += "\"battery\":" + String(bat) + ",";
       postData += "\"level\":" + String(waterLevel, 1) + ",";
       postData += "\"location\":\"" + currentLocLabel + "\",";
-      postData += "\"signal\":" + String(signal) + ",";
-      postData += "\"pump_status\":" + String(reportStatus ? "true" : "false");
+      postData += "\"signal\":" + String(signal) + "";
+      //postData += "\"pump_status\":" + String(reportStatus ? "true" : "false");
       postData += "}";
 
       Serial.println(postData); // Debug JSON

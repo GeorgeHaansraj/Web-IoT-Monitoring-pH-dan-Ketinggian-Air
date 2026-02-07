@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -8,6 +9,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface PumpDurationModalProps {
   isOpen: boolean;
@@ -22,9 +24,38 @@ export function PumpDurationModal({
   onSelect,
   isLoading = false,
 }: PumpDurationModalProps) {
+  const [customDuration, setCustomDuration] = useState<string>("");
+  const [unit, setUnit] = useState<"minute" | "hour" | "day">("hour");
+
   const handleDurationSelect = (duration: number | null, isManual: boolean) => {
     onSelect(duration, isManual);
     onClose();
+    setCustomDuration("");
+    setUnit("hour");
+  };
+
+  const handleCustomDuration = () => {
+    if (!customDuration || isNaN(Number(customDuration))) {
+      alert("Masukkan angka yang valid");
+      return;
+    }
+
+    const numDuration = Number(customDuration);
+    let durationInMinutes = numDuration;
+
+    // Convert to minutes
+    if (unit === "hour") {
+      durationInMinutes = numDuration * 60;
+    } else if (unit === "day") {
+      durationInMinutes = numDuration * 24 * 60;
+    }
+
+    if (durationInMinutes <= 0) {
+      alert("Durasi harus lebih dari 0");
+      return;
+    }
+
+    handleDurationSelect(durationInMinutes, false);
   };
 
   return (
@@ -35,45 +66,56 @@ export function PumpDurationModal({
           <DialogDescription>Berapa lama pompa akan menyala?</DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-3 py-4">
-          <Button
-            onClick={() => handleDurationSelect(1, false)}
-            variant="outline"
-            disabled={isLoading}
-            className="h-12 text-base"
-          >
-            1 Jam
-          </Button>
+        <div className="grid gap-4 py-4">
+          {/* Custom Duration Input */}
+          <div className="space-y-3">
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                placeholder="Masukkan durasi"
+                value={customDuration}
+                onChange={(e) => setCustomDuration(e.target.value)}
+                disabled={isLoading}
+                className="flex-1"
+                min="1"
+              />
+              <select
+                value={unit}
+                onChange={(e) =>
+                  setUnit(e.target.value as "minute" | "hour" | "day")
+                }
+                disabled={isLoading}
+                className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="minute">Menit</option>
+                <option value="hour">Jam</option>
+                <option value="day">Hari</option>
+              </select>
+            </div>
 
-          <Button
-            onClick={() => handleDurationSelect(2, false)}
-            variant="outline"
-            disabled={isLoading}
-            className="h-12 text-base"
-          >
-            2 Jam
-          </Button>
-
-          <Button
-            onClick={() => handleDurationSelect(3, false)}
-            variant="outline"
-            disabled={isLoading}
-            className="h-12 text-base"
-          >
-            3 Jam
-          </Button>
-
-          <div className="border-t pt-3 mt-2">
             <Button
-              onClick={() => handleDurationSelect(null, true)}
-              variant="secondary"
-              disabled={isLoading}
-              className="w-full h-12 text-base"
+              onClick={handleCustomDuration}
+              disabled={isLoading || !customDuration}
+              className="w-full h-10 bg-blue-600 hover:bg-blue-700"
             >
-              Manual (Tidak Otomatis Mati)
+              Hidup (Custom)
             </Button>
           </div>
 
+          {/* Divider */}
+          <div className="border-t pt-2"></div>
+
+          {/* Manual Mode */}
+          <Button
+            onClick={() => handleDurationSelect(null, true)}
+            variant="secondary"
+            disabled={isLoading}
+            className="w-full h-10"
+          >
+            Manual (Matikan Manual)
+          </Button>
+
+          {/* Cancel Button */}
           <Button
             onClick={onClose}
             variant="ghost"

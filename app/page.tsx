@@ -278,12 +278,14 @@ export default function Dashboard() {
         setRemainingTime("00:00:00");
       } else {
         const hours = Math.floor(remaining / (1000 * 60 * 60));
-        const minutes = Math.floor((remaining % (1000 * 60 * 60)) / (1000 * 60));
+        const minutes = Math.floor(
+          (remaining % (1000 * 60 * 60)) / (1000 * 60),
+        );
         const seconds = Math.floor((remaining % (1000 * 60)) / 1000);
         setRemainingTime(
           `${hours.toString().padStart(2, "0")}:${minutes
             .toString()
-            .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`
+            .padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`,
         );
       }
     };
@@ -583,7 +585,9 @@ export default function Dashboard() {
     const now = Date.now();
     const timeSinceLastToggle = now - lastPumpToggle;
     if (timeSinceLastToggle < 2000) {
-      toast.info(`Tunggu ${Math.ceil((2000 - timeSinceLastToggle) / 1000)} detik`);
+      toast.info(
+        `Tunggu ${Math.ceil((2000 - timeSinceLastToggle) / 1000)} detik`,
+      );
       return;
     }
 
@@ -610,7 +614,7 @@ export default function Dashboard() {
       // Sync UI with database if mismatch detected
       if (dbIsOn !== isPumpOn) {
         console.warn(
-          `[PUMP] State mismatch! UI: ${isPumpOn}, DB: ${dbIsOn}. Syncing...`
+          `[PUMP] State mismatch! UI: ${isPumpOn}, DB: ${dbIsOn}. Syncing...`,
         );
         setIsPumpOn(dbIsOn);
         toast.warning("Status disinkronkan dengan database");
@@ -659,11 +663,19 @@ export default function Dashboard() {
         }
 
         if (isOn) {
-          const modeText = isManualMode
-            ? "(Manual)"
-            : duration
-              ? `(${duration} jam)`
-              : "";
+          let modeText = "";
+          if (isManualMode) {
+            modeText = "(Manual)";
+          } else if (duration) {
+            // duration is now in minutes, convert back for display
+            if (duration < 60) {
+              modeText = `(${duration} menit)`;
+            } else if (duration < 1440) {
+              modeText = `(${(duration / 60).toFixed(1)} jam)`;
+            } else {
+              modeText = `(${(duration / 1440).toFixed(1)} hari)`;
+            }
+          }
           toast("Pompa air dihidupkan " + modeText, {
             style: {
               background: "#ffffff",
@@ -697,7 +709,7 @@ export default function Dashboard() {
       toast.error(
         verifyError instanceof Error
           ? verifyError.message
-          : "Gagal memverifikasi status pompa"
+          : "Gagal memverifikasi status pompa",
       );
       setIsTogglingPump(false);
     }
@@ -749,15 +761,17 @@ export default function Dashboard() {
             {adminMessages.map((message) => (
               <div
                 key={message.id}
-                className={`p-4 rounded-lg border-l-4 ${message.isRead
-                  ? "bg-white border-gray-300"
-                  : "bg-blue-100 border-blue-600"
-                  }`}
+                className={`p-4 rounded-lg border-l-4 ${
+                  message.isRead
+                    ? "bg-white border-gray-300"
+                    : "bg-blue-100 border-blue-600"
+                }`}
               >
                 <div className="flex justify-between items-start gap-2 mb-2">
                   <p
-                    className={`text-sm font-semibold ${message.isRead ? "text-gray-600" : "text-blue-900"
-                      }`}
+                    className={`text-sm font-semibold ${
+                      message.isRead ? "text-gray-600" : "text-blue-900"
+                    }`}
                   >
                     {new Date(message.createdAt).toLocaleString("id-ID")}
                   </p>
@@ -815,10 +829,11 @@ export default function Dashboard() {
 
           {/* Connection Status */}
           <div
-            className={`rounded-lg p-5 border flex flex-col items-center justify-center transition-all ${isOnline
-              ? "bg-gradient-to-br from-cyan-50 to-blue-100 border-blue-300"
-              : "bg-gradient-to-br from-orange-50 to-red-100 border-red-300"
-              }`}
+            className={`rounded-lg p-5 border flex flex-col items-center justify-center transition-all ${
+              isOnline
+                ? "bg-gradient-to-br from-cyan-50 to-blue-100 border-blue-300"
+                : "bg-gradient-to-br from-orange-50 to-red-100 border-red-300"
+            }`}
           >
             {/* Icon */}
             <div className="mb-3">
@@ -832,10 +847,11 @@ export default function Dashboard() {
             {/* Status Badge */}
             <div className="mb-3">
               <span
-                className={`text-sm font-bold px-3 py-1.5 rounded-full transition-all ${isOnline
-                  ? "bg-green-200 text-green-700"
-                  : "bg-red-200 text-red-700"
-                  }`}
+                className={`text-sm font-bold px-3 py-1.5 rounded-full transition-all ${
+                  isOnline
+                    ? "bg-green-200 text-green-700"
+                    : "bg-red-200 text-red-700"
+                }`}
               >
                 {isOnline ? "Online" : "Offline"}
               </span>
@@ -1049,8 +1065,9 @@ export default function Dashboard() {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Droplet
-                className={`w-6 h-6 ${isPumpOn ? "text-blue-600" : "text-gray-400"
-                  }`}
+                className={`w-6 h-6 ${
+                  isPumpOn ? "text-blue-600" : "text-gray-400"
+                }`}
               />
               <div>
                 <h2 className="text-lg font-semibold">Kontrol Pompa</h2>
@@ -1069,14 +1086,18 @@ export default function Dashboard() {
               checked={isPumpOn}
               onCheckedChange={handlePumpToggle}
               disabled={isTogglingPump}
-              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors px-1 p-3 ${isTogglingPump
-                ? "bg-gray-400 opacity-60 cursor-not-allowed"
-                : isPumpOn ? "bg-blue-600" : "bg-gray-300"
-                }`}
+              className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors px-1 p-3 ${
+                isTogglingPump
+                  ? "bg-gray-400 opacity-60 cursor-not-allowed"
+                  : isPumpOn
+                    ? "bg-blue-600"
+                    : "bg-gray-300"
+              }`}
             >
               <span
-                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${isPumpOn ? "translate-x-6" : "translate-x-0"
-                  }`}
+                className={`inline-block h-6 w-6 transform rounded-full bg-white transition-transform ${
+                  isPumpOn ? "translate-x-6" : "translate-x-0"
+                }`}
               />
             </Switch>
           </div>
