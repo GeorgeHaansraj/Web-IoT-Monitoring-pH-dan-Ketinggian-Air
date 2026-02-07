@@ -95,18 +95,13 @@ export async function POST(request: NextRequest) {
  */
 export async function GET(request: NextRequest) {
   try {
+    // Verify prisma instance
+    if (!prisma) {
+      throw new Error("Prisma client is not initialized");
+    }
+
     const latestLog = await prisma.monitoringLog.findFirst({
       orderBy: { created_at: "desc" },
-      select: {
-        id: true,
-        battery_level: true,
-        ph_value: true,
-        level: true,
-        temperature: true,
-        signal_strength: true,
-        created_at: true,
-        deviceId: true,
-      },
     });
 
     if (!latestLog) {
@@ -135,23 +130,12 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error("[MONITORING-LOG] Error:", error);
 
-    // More specific error handling
-    if (error?.code === "P2021" || error?.code === "P2022") {
-      console.error("[MONITORING-LOG] Table or column missing:", error.message);
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Database table not found",
-        },
-        { status: 503 },
-      );
-    }
-
     return NextResponse.json(
       {
         success: false,
         error: "Failed to fetch monitoring data",
-        message: error?.message,
+        message: error instanceof Error ? error.message : "Unknown error",
+        stack: error instanceof Error ? error.stack : undefined,
       },
       { status: 500 },
     );

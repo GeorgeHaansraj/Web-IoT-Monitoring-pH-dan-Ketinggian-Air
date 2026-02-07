@@ -147,3 +147,15 @@ model PumpTimer {
   @@index([mode], map: "idx_pump_timers_mode")
   @@map("pump_timers")
 }
+
+model ApiKey {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  name      String   // e.g. "External Web", "Mobile App"
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  lastUsed  DateTime?
+
+  @@map("api_keys")
+}

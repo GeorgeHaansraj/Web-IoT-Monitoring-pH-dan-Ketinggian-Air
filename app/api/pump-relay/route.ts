@@ -153,30 +153,59 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    // Get user session untuk tracking siapa yang mengontrol
-    const session = await auth();
-
-    // SECURITY: Validate session exists and is active
-    if (!session || !session.user) {
-      return NextResponse.json(
-        {
-          error:
-            "Session tidak valid atau sudah expired. Silakan login kembali.",
-        },
-        { status: 401 },
-      );
-    }
-
-    const userId = (session.user as { id?: string }).id;
-
+    // Parse body first as we need it for auth context sometimes
     const body = await req.json();
-    const {
+    let {
       mode = "sawah",
       isOn,
-      changedBy = "dashboard",
-      duration = null, // Duration in MINUTES (converted from user's unit selection)
+      duration = null, // Duration in MINUTES
       isManualMode = false,
+      changedBy = "dashboard",
     } = body;
+
+    // Get user session
+    const session = await auth();
+    let userId = session?.user?.id;
+
+    // SECURITY: Validate session OR API Key
+    if (!session || !session.user) {
+      // Check for API Key in Authorization header
+      const authHeader = req.headers.get("authorization");
+      if (authHeader && authHeader.startsWith("Bearer ")) {
+        const apiKey = authHeader.substring(7);
+
+        // Verify API Key
+        // NOTE: We cast to any because typescript might complain if schema isn't generated yet
+        // In runtime this will work IF the schema is updated in DB
+        const validKey = await (prisma as any).apiKey.findUnique({
+          where: { key: apiKey, isActive: true },
+        });
+
+        if (validKey) {
+          userId = "api-key-" + validKey.id;
+          changedBy = `${changedBy} (API: ${validKey.name})`;
+
+          // Update usage stats
+          await (prisma as any).apiKey.update({
+            where: { id: validKey.id },
+            data: { lastUsed: new Date() }
+          });
+        } else {
+          return NextResponse.json(
+            { error: "Invalid API Key" },
+            { status: 401 }
+          );
+        }
+      } else {
+        return NextResponse.json(
+          {
+            error:
+              "Session tidak valid atau API Key tidak ditemukan. Silakan login kembali.",
+          },
+          { status: 401 },
+        );
+      }
+    }
 
     if (isOn === undefined) {
       return NextResponse.json(
@@ -185,14 +214,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // SECURITY: If turning ON, verify session is valid (heartbeat check)
-    if (isOn) {
-      if (!session || !session.user) {
-        return NextResponse.json(
-          { error: "Session invalid - cannot turn pump ON" },
-          { status: 401 },
-        );
-      }
+    // For API requests, ensure valid mode is enforced
+    if (mode !== "sawah" && mode !== "kolam") {
+      return NextResponse.json({ error: "Invalid mode. Use 'sawah' or 'kolam'" }, { status: 400 });
     }
 
     // Get current status untuk riwayat comparison
