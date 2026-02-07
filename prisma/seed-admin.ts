@@ -8,7 +8,7 @@ async function seedAdmin() {
     // Check if admin already exists
     const existingAdmin = await prisma.user.findUnique({
       where: {
-        email: "admin",
+        phone: "0812345678",
       },
     });
 
@@ -23,16 +23,16 @@ async function seedAdmin() {
     // Create admin user
     const admin = await prisma.user.create({
       data: {
-        email: "admin",
-        name: "Administrator",
+        phone: "0812345678",
+        fullName: "Administrator",
         password: hashedPassword,
         role: "admin",
       },
     });
 
     console.log("✓ Admin account created successfully");
-    console.log(`  Email: ${admin.email}`);
-    console.log(`  Name: ${admin.name}`);
+    console.log(`  Phone: ${admin.phone}`);
+    console.log(`  Name: ${admin.fullName}`);
     console.log(`  Role: ${admin.role}`);
   } catch (error) {
     console.error("❌ Error seeding admin:", error);

@@ -79,7 +79,6 @@ export default function AdminPage() {
     useState<User | null>(null);
   const [messageText, setMessageText] = useState("");
   const [isSendingMessage, setIsSendingMessage] = useState(false);
-  const [isTogglingUserStatus, setIsTogglingUserStatus] = useState(false);
   const [isDeletingUser, setIsDeletingUser] = useState(false);
 
   // Pump history states
@@ -440,38 +439,6 @@ export default function AdminPage() {
       toast.error("Gagal menghapus user - periksa koneksi internet");
     } finally {
       setIsDeletingUser(false);
-    }
-  };
-
-  const handleToggleUserStatus = async (userId: string) => {
-    const user = users.find((u) => u.id === userId);
-    if (!user) return;
-
-    setIsTogglingUserStatus(true);
-    try {
-      const response = await fetch(`/api/admin/users/${userId}/status`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: !user.isActive }),
-      });
-
-      if (response.ok) {
-        setUsers(
-          users.map((u) =>
-            u.id === userId ? { ...u, isActive: !u.isActive } : u,
-          ),
-        );
-        toast.success(
-          `User ${user.isActive ? "dinonaktifkan" : "diaktifkan"} berhasil`,
-        );
-      } else {
-        toast.error("Gagal mengubah status user");
-      }
-    } catch (error) {
-      console.error("Error toggling user status:", error);
-      toast.error("Gagal mengubah status user");
-    } finally {
-      setIsTogglingUserStatus(false);
     }
   };
 
@@ -1263,9 +1230,6 @@ export default function AdminPage() {
                       Email
                     </th>
                     <th className="px-6 py-3 text-left text-sm font-semibold">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold">
                       Bergabung
                     </th>
                     <th className="px-6 py-3 text-center text-sm font-semibold">
@@ -1278,15 +1242,6 @@ export default function AdminPage() {
                     <tr key={user.id} className="border-b hover:bg-gray-50">
                       <td className="px-6 py-4 font-medium">{user.username}</td>
                       <td className="px-6 py-4 text-gray-600">{user.email}</td>
-                      <td className="px-6 py-4">
-                        <Switch
-                          checked={user.isActive}
-                          onCheckedChange={() =>
-                            handleToggleUserStatus(user.id)
-                          }
-                          disabled={isTogglingUserStatus}
-                        />
-                      </td>
                       <td className="px-6 py-4 text-sm text-gray-500">
                         {user.createdAt}
                       </td>

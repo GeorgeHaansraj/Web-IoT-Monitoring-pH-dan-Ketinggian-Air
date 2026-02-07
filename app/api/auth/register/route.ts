@@ -5,18 +5,33 @@ import bcrypt from "bcryptjs";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { nama, noTelp, username, password } = body;
+    const { nama, noTelp, password } = body;
 
-    // Check if user already exists
-    const existingUser = await prisma.user.findFirst({
-      where: {
-        OR: [{ email: username }, { name: username }],
-      },
+    // Validasi input
+    if (!nama || !noTelp || !password) {
+      return NextResponse.json(
+        { error: "Nama, nomor telepon, dan password harus diisi" },
+        { status: 400 },
+      );
+    }
+
+    // Validasi format nomor telepon (Indonesia format, 10-13 digits)
+    const phoneRegex = /^(\+62|0)[0-9]{9,12}$/;
+    if (!phoneRegex.test(noTelp.replace(/\s/g, ""))) {
+      return NextResponse.json(
+        { error: "Nomor telepon tidak valid" },
+        { status: 400 },
+      );
+    }
+
+    // Check if user already exists by phone
+    const existingUser = await prisma.user.findUnique({
+      where: { phone: noTelp },
     });
 
     if (existingUser) {
       return NextResponse.json(
-        { error: "Username sudah digunakan" },
+        { error: "Nomor telepon sudah terdaftar" },
         { status: 400 },
       );
     }
@@ -27,8 +42,8 @@ export async function POST(request: NextRequest) {
     // Create user with default role
     const user = await prisma.user.create({
       data: {
-        name: nama,
-        email: username,
+        fullName: nama,
+        phone: noTelp,
         password: hashedPassword,
         role: "user", // Default role for all users
       },

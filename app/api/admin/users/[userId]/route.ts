@@ -49,16 +49,16 @@ export async function DELETE(
 
     const relatedRecordsCount = deletedUser.pumpHistory?.length || 0;
     console.log(
-      `[USER] Admin ${session.user?.email} deleted user ${user.email}. Related records deleted: ${relatedRecordsCount}`,
+      `[USER] Admin ${session.user?.email} deleted user ${user.phone}. Related records deleted: ${relatedRecordsCount}`,
     );
 
     return NextResponse.json(
       {
         success: true,
-        message: `User ${user.email} berhasil dihapus beserta ${relatedRecordsCount} data terkait`,
+        message: `User ${user.phone} berhasil dihapus beserta ${relatedRecordsCount} data terkait`,
         data: {
           userId,
-          userEmail: user.email,
+          userPhone: user.phone,
           relatedRecordsDeleted: relatedRecordsCount,
           deletedAt: new Date().toISOString(),
         },

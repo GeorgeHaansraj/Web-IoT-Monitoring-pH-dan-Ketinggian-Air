@@ -9,8 +9,8 @@ datasource db {
 
 model User {
   id            String         @id @default(cuid())
-  email         String         @unique
-  name          String?
+  phone         String         @unique // Phone number as unique identifier
+  fullName      String         @default("Unknown") // Full name (required)
   password      String
   role          String         @default("user")
   createdAt     DateTime       @default(now())
@@ -121,13 +121,14 @@ model MonitoringLog {
 }
 
 model AdminMessage {
-  id        String    @id @default(cuid())
-  userId    String
-  message   String
-  isRead    Boolean   @default(false)
-  readAt    DateTime?
-  createdAt DateTime  @default(now())
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                  String    @id @default(cuid())
+  userId              String
+  message             String
+  isRead              Boolean   @default(false)
+  readAt              DateTime?
+  dismissedByUserIds  String[]  @default([]) // Track which users dismissed this message
+  createdAt           DateTime  @default(now())
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId, createdAt])
   @@index([isRead])

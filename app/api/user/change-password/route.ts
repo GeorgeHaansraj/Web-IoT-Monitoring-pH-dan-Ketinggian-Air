@@ -42,9 +42,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Cari user berdasarkan email dari session
+    // Cari user berdasarkan phone dari session
     const user = await prisma.user.findUnique({
-      where: { email: session.user.email },
+      where: { phone: session.user.email },
     });
 
     if (!user) {
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    console.log(`[SECURITY] Password user ${user.email} berhasil diubah`);
+    console.log(`[SECURITY] Password user ${user.phone} berhasil diubah`);
 
     return NextResponse.json(
       {

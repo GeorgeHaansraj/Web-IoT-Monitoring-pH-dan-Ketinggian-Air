@@ -7,7 +7,7 @@ import Link from "next/link";
 import PasswordInput from "@/components/PasswordInput";
 
 export default function LoginPage() {
-  const [username, setUsername] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const router = useRouter();
@@ -19,13 +19,13 @@ export default function LoginPage() {
     try {
       // Try to sign in with NextAuth credentials
       const result = await signIn("credentials", {
-        username,
+        phone,
         password,
         redirect: false,
       });
 
       if (result?.error) {
-        setError("Username atau Password salah!");
+        setError("Nomor telepon atau Password salah!");
         return;
       }
 
@@ -64,12 +64,14 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="text-xs font-bold text-gray-500 uppercase">
-              Username
+              Nomor Telepon
             </label>
             <input
-              type="text"
+              type="tel"
+              placeholder="0812xxxx"
               className="w-full p-3 mt-1 bg-gray-50 border rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
-              onChange={(e) => setUsername(e.target.value)}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
             />
           </div>
           <div>

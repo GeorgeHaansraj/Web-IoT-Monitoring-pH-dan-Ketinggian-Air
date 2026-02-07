@@ -26,8 +26,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const userEmail = (session.user as { email?: string }).email;
-    if (!userEmail) {
+    const userPhone = (session.user as { email?: string }).email;
+    if (!userPhone) {
       return NextResponse.json({ error: "Invalid session" }, { status: 401 });
     }
 
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
 
     // Get user dari database
     const user = await prisma.user.findUnique({
-      where: { email: userEmail },
+      where: { phone: userPhone },
     });
 
     if (!user) {
@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
 
     // Update password di database
     await prisma.user.update({
-      where: { email: userEmail },
+      where: { phone: userPhone },
       data: {
         password: hashedNewPassword,
         updatedAt: new Date(),

@@ -160,9 +160,6 @@ export default function ProfilePage() {
           <h2 className="text-2xl font-bold text-gray-800">
             {user?.name || "Pemilik Lahan"}
           </h2>
-          <p className="text-gray-500 text-sm">
-            @{user?.username || "georgehaansraj"}
-          </p>
         </CardContent>
       </Card>
 
@@ -174,10 +171,10 @@ export default function ProfilePage() {
           </div>
           <div>
             <p className="text-[10px] text-gray-500 uppercase font-bold">
-              Email
+              Nomor Telepon
             </p>
             <p className="text-sm font-semibold text-gray-700">
-              {user?.email || "user@example.com"}
+              {user?.email || "0812xxxxxxxx"}
             </p>
           </div>
         </div>

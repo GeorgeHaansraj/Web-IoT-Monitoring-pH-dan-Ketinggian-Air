@@ -314,9 +314,9 @@ export default function Dashboard() {
 
     const fetchMessages = async () => {
       try {
-        const response = await fetch("/api/user/messages");
-        if (response.ok) {
-          const data = await response.json();
+        const messagesResponse = await fetch("/api/user/messages");
+        if (messagesResponse.ok) {
+          const data = await messagesResponse.json();
           setAdminMessages(data.data || []);
           setUnreadCount(data.unreadCount || 0);
           console.log("[MESSAGES] Fetched:", data.data?.length, "messages");
@@ -326,8 +326,11 @@ export default function Dashboard() {
       }
     };
 
+    // Run immediately on mount
     fetchMessages();
-    const interval = setInterval(fetchMessages, 30000); // Poll every 30 seconds
+    
+    // Then set up interval for subsequent checks (30 seconds)
+    const interval = setInterval(fetchMessages, 30000);
     return () => clearInterval(interval);
   }, [session?.user]);
   if (status === "loading") {
@@ -566,6 +569,30 @@ export default function Dashboard() {
     }
   };
 
+  const handleDismissMessage = async (messageId: string) => {
+    try {
+      const response = await fetch(`/api/user/messages/${messageId}`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      if (response.ok) {
+        // Remove message from UI
+        setAdminMessages(adminMessages.filter((msg) => msg.id !== messageId));
+        // Decrease unread count if message was unread
+        const dismissedMsg = adminMessages.find((msg) => msg.id === messageId);
+        if (dismissedMsg && !dismissedMsg.isRead) {
+          setUnreadCount(Math.max(0, unreadCount - 1));
+        }
+      } else {
+        toast.error("Gagal menghapus pesan");
+      }
+    } catch (error) {
+      console.error("[MESSAGES] Error dismissing message:", error);
+      toast.error("Gagal menghapus pesan");
+    }
+  };
+
   const handlePumpToggle = async (checked: boolean) => {
     // If turning pump ON, show duration modal first
     if (checked) {
@@ -775,14 +802,22 @@ export default function Dashboard() {
                   >
                     {new Date(message.createdAt).toLocaleString("id-ID")}
                   </p>
-                  {!message.isRead && (
+                  <div className="flex gap-2">
+                    {!message.isRead && (
+                      <button
+                        onClick={() => handleMarkMessageAsRead(message.id)}
+                        className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition"
+                      >
+                        Tandai dibaca
+                      </button>
+                    )}
                     <button
-                      onClick={() => handleMarkMessageAsRead(message.id)}
-                      className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700 transition"
+                      onClick={() => handleDismissMessage(message.id)}
+                      className="text-xs bg-gray-500 text-white px-3 py-1 rounded hover:bg-gray-600 transition"
                     >
-                      Tandai dibaca
+                      Oke
                     </button>
-                  )}
+                  </div>
                 </div>
                 <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">
                   {message.message}

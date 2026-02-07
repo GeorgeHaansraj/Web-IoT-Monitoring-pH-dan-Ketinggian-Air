@@ -1,47 +1,35 @@
-import { PrismaClient } from '@prisma/client'
-import bcrypt from 'bcryptjs'
-import 'dotenv/config'
+import { PrismaClient } from "@prisma/client";
+import bcrypt from "bcryptjs";
+import "dotenv/config";
 
-const prisma = new PrismaClient()
+const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Seeding database with default users...')
+  console.log("🌱 Seeding database with default users...");
 
   // Create default users
   const defaultUsers = [
     {
-      name: 'Pemilik Sawah',
-      email: 'sawah_user',
-      password: 'password123',
-      role: 'sawah',
+      fullName: "Admin",
+      phone: "081293017371",
+      password: "admin123",
+      role: "admin",
     },
-    {
-      name: 'Pemilik Kolam',
-      email: 'kolam_user',
-      password: 'password123',
-      role: 'kolam',
-    },
-    {
-      name: 'Administrator',
-      email: 'admin',
-      password: 'admin123',
-      role: 'admin',
-    },
-  ]
+  ];
 
   for (const userData of defaultUsers) {
     // Check if user already exists
     const existingUser = await prisma.user.findUnique({
-      where: { email: userData.email },
-    })
+      where: { phone: userData.phone },
+    });
 
     if (existingUser) {
-      console.log(`✅ User ${userData.name} already exists`)
-      continue
+      console.log(`✅ User ${userData.fullName} already exists`);
+      continue;
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(userData.password, 12)
+    const hashedPassword = await bcrypt.hash(userData.password, 12);
 
     // Create user
     const user = await prisma.user.create({
@@ -49,23 +37,21 @@ async function main() {
         ...userData,
         password: hashedPassword,
       },
-    })
+    });
 
-    console.log(`✅ Created user: ${user.name} (${user.role})`)
+    console.log(`✅ Created user: ${user.fullName} (${user.role})`);
   }
 
-  console.log('🎉 Database seeding completed!')
-  console.log('\nDefault login credentials:')
-  console.log('1. Sawah User - Username: sawah_user, Password: password123')
-  console.log('2. Kolam User - Username: kolam_user, Password: password123')
-  console.log('3. Admin User - Username: admin, Password: admin123')
+  console.log("🎉 Database seeding completed!");
+  console.log("\nDefault login credentials:");
+  console.log("Admin User - Phone: 082379238544, Password: admin123");
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Error seeding database:', e)
-    process.exit(1)
+    console.error("❌ Error seeding database:", e);
+    process.exit(1);
   })
   .finally(async () => {
-    await prisma.$disconnect()
-  })
+    await prisma.$disconnect();
+  });

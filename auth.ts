@@ -9,19 +9,19 @@ export const authOptions = {
   providers: [
     Credentials({
       credentials: {
-        username: { label: "Username", type: "text" },
+        phone: { label: "Nomor Telepon", type: "text" },
         password: { label: "Password", type: "password" },
       },
       authorize: async (credentials) => {
-        if (!credentials?.username || !credentials?.password) {
+        if (!credentials?.phone || !credentials?.password) {
           return null;
         }
 
         try {
-          // Find user in database
+          // Find user in database by phone number
           const user = await prisma.user.findUnique({
             where: {
-              email: credentials.username as string,
+              phone: credentials.phone as string,
             },
           });
 
@@ -41,8 +41,8 @@ export const authOptions = {
 
           return {
             id: user.id,
-            name: user.name,
-            email: user.email,
+            name: user.fullName,
+            email: user.phone, // Use phone as the email field for compatibility
             role: user.role,
           };
         } catch (error) {

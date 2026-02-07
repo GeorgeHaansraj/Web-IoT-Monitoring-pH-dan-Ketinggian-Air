@@ -7,8 +7,8 @@ export async function GET() {
     const users = await prisma.user.findMany({
       select: {
         id: true,
-        name: true,
-        email: true,
+        fullName: true,
+        phone: true,
         role: true,
         createdAt: true,
       },
@@ -23,14 +23,13 @@ export async function GET() {
       .filter((user: any) => user.role !== "admin")
       .map((user: any) => ({
         id: user.id,
-        username: user.name || "Unknown",
-        email: user.email,
+        username: user.fullName || "Unknown",
+        email: user.phone,
         role: user.role as "admin" | "user" | "operator",
         location:
           user.role === "sawah" || user.role === "kolam"
             ? (user.role as "sawah" | "kolam")
             : ("both" as const),
-        isActive: true, // Default to active
         createdAt: new Date(user.createdAt).toISOString().split("T")[0],
       }));
 

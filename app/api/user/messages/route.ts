@@ -11,10 +11,23 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    // Get unread messages for current user
+    // Auto-cleanup: Delete messages older than 24 hours (1440 minutes)
+    const twentyFourHoursAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    await prisma.adminMessage.deleteMany({
+      where: {
+        createdAt: {
+          lt: twentyFourHoursAgo,
+        },
+      },
+    });
+
+    // Get messages for current user (within 24 hours)
     const messages = await prisma.adminMessage.findMany({
       where: {
         userId: session.user.id,
+        createdAt: {
+          gte: twentyFourHoursAgo,
+        },
       },
       orderBy: {
         createdAt: "desc",
@@ -22,11 +35,17 @@ export async function GET(request: Request) {
       take: 50, // Limit to 50 most recent messages
     });
 
+    // Filter out messages that have been dismissed by current user
+    const currentUserId = session.user.id!;
+    const filteredMessages = messages.filter(
+      (msg) => !msg.dismissedByUserIds.includes(currentUserId)
+    );
+
     return NextResponse.json(
       {
         success: true,
-        data: messages,
-        unreadCount: messages.filter((m) => !m.isRead).length,
+        data: filteredMessages,
+        unreadCount: filteredMessages.filter((m) => !m.isRead).length,
       },
       { status: 200 },
     );

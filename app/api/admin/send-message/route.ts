@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     });
 
     console.log(
-      `[MESSAGE] Admin ${session.user?.email} sent message to ${user.email}:`,
+      `[MESSAGE] Admin ${session.user?.email} sent message to ${user.phone}:`,
       message,
     );
 

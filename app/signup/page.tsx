@@ -21,7 +21,6 @@ export default function SignUpPage() {
   const [formData, setFormData] = useState({
     nama: "",
     noTelp: "",
-    username: "",
     password: "",
     confirmPassword: "",
   });
@@ -55,7 +54,6 @@ export default function SignUpPage() {
         body: JSON.stringify({
           nama: formData.nama,
           noTelp: formData.noTelp,
-          username: formData.username,
           password: formData.password,
         }),
       });
@@ -132,21 +130,7 @@ export default function SignUpPage() {
               </div>
             </div>
 
-            {/* 3. Username */}
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                placeholder="Buat username unik"
-                required
-                value={formData.username}
-                onChange={(e) =>
-                  setFormData({ ...formData, username: e.target.value })
-                }
-              />
-            </div>
-
-            {/* 4 & 5. Password */}
+            {/* 3. Password */}
             <div className="grid grid-cols-2 gap-3">
               <PasswordInput
                 id="pass"
