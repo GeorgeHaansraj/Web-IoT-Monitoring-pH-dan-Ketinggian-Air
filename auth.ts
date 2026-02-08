@@ -13,11 +13,19 @@ export const authOptions = {
         password: { label: "Password", type: "password" },
       },
       authorize: async (credentials) => {
+        console.log("🔐 [AUTH] Authorize called with credentials:", {
+          phone: credentials?.phone,
+          hasPassword: !!credentials?.password,
+        });
+
         if (!credentials?.phone || !credentials?.password) {
+          console.log("❌ [AUTH] Missing phone or password");
           return null;
         }
 
         try {
+          console.log("🔍 [AUTH] Looking for user with phone:", credentials.phone);
+
           // Find user in database by phone number
           const user = await prisma.user.findUnique({
             where: {
@@ -26,18 +34,30 @@ export const authOptions = {
           });
 
           if (!user) {
+            console.log("❌ [AUTH] User not found");
             return null;
           }
 
+          console.log("✅ [AUTH] User found:", {
+            id: user.id,
+            phone: user.phone,
+            name: user.fullName,
+            role: user.role,
+          });
+
           // Verify password
+          console.log("🔐 [AUTH] Verifying password...");
           const isPasswordValid = await bcrypt.compare(
             credentials.password as string,
             user.password,
           );
 
           if (!isPasswordValid) {
+            console.log("❌ [AUTH] Invalid password");
             return null;
           }
+
+          console.log("✅ [AUTH] Password valid! Returning user object");
 
           return {
             id: user.id,
@@ -46,7 +66,7 @@ export const authOptions = {
             role: user.role,
           };
         } catch (error) {
-          console.error("Auth authorize error:", error);
+          console.error("❌ [AUTH] Error in authorize:", error);
           return null;
         }
       },

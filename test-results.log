@@ -1,0 +1,34 @@
+🔍 TESTING AUTHENTICATION FLOW
+
+==================================================
+
+1️⃣  Testing Database Connection...
+   ✅ Database connected successfully
+
+2️⃣  Looking for test user (phone: 0812345678)...
+   ✅ User found:
+      Phone: 0812345678
+      Name: Administrator
+      Role: admin
+      Password Hash: $2b$12$dR2VVI5KT05f5...
+
+3️⃣  Testing Password Verification...
+   Testing password: "admin123"
+   ✅ Password is VALID! ✅
+
+4️⃣  Checking Environment Variables...
+   DATABASE_URL: ✅ Set
+   NEXTAUTH_URL: http://localhost:3000
+   NEXTAUTH_SECRET: ✅ Set (length: 44)
+
+5️⃣  Auth Return Object (what NextAuth would get):
+{
+  "id": "cmlc08e8y0002vjep20qyx4ip",
+  "name": "Administrator",
+  "email": "0812345678",
+  "role": "admin"
+}
+
+==================================================
+✅ ALL TESTS COMPLETED
+==================================================

@@ -56,7 +56,7 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-6">
       <div className="w-full max-w-sm bg-white p-8 rounded-2xl shadow-xl border border-gray-100">
-        <h1 className="text-2xl font-bold text-center mb-2">AgriSense</h1>
+        <h1 className="text-2xl font-bold text-center mb-2">TEGASU</h1>
         <p className="text-gray-400 text-center text-sm mb-8">
           Silakan masuk untuk memantau lahan
         </p>
@@ -92,7 +92,7 @@ export default function LoginPage() {
           </button>
         </form>
         <div className="mt-6 text-center text-sm">
-          <p className="text-gray-500">Belum memiliki akun AgriSense?</p>
+          <p className="text-gray-500">Belum memiliki akun TEGASU?</p>
           <Link
             href="/signup"
             className="inline-block mt-2 text-gray-800 font-bold hover:text-gray-600 border border-gray-800 px-4 py-2 rounded-lg transition-all"
